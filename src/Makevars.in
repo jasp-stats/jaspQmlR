@@ -1,0 +1,4 @@
+PKG_LIBS = @libflags@
+CXX_STD = CXX20
+PKG_CXXFLAGS = @cppflags@
+

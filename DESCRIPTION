@@ -1,19 +1,14 @@
-Package: jaspModule
+Package: jaspQmlR
 Type: Package
-Title: A module for JASP
-Version: 0.1.0
-Date: 2020-10-15
+Title: Running QML in R
+Version: 1.0
+Date: 2020-12-01
 Author: JASP Team
 Website: jasp-stats.org
 Maintainer: JASP Team <info@jasp-stats.org>
-Description: This module offers analyses.
+Description: Start a QML Engine to allow R to load a QML component
 License: GPL (>= 2)
-Encoding: UTF-8
-Imports:
-  jaspBase,
-  jaspGraphs
-Suggests:
-  testthat
-Remotes:
-  jasp-stats/jaspBase,
-  jasp-stats/jaspGraphs
+Imports: Rcpp (>= 1.0.5)
+LinkingTo: Rcpp
+Suggests: 
+    testthat
