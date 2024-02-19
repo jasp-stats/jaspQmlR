@@ -13,8 +13,9 @@ using namespace Rcpp;
 #include <QQmlComponent>
 #include <QQuickItem>
 #include <QDir>
-
 #include <filesystem>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #define _STRINGIZE(x) #x
 #define STRINGIZE(x) _STRINGIZE(x)
@@ -24,6 +25,7 @@ static std::string qt_install_dir;
 static std::string jasp_qmlcomponents_dir;
 static QGuiApplication* application				= nullptr;
 static QQmlApplicationEngine* engine			= nullptr;
+static bool hasError							= false;
 
 void printFolder(StringVector& output, const QDir& dir, int depth = 0)
 {
@@ -132,7 +134,73 @@ void init(StringVector& output)
 	printFolder(output, dir); */
 }
 
+void addError(QJsonObject& jsonResult, QString msg)
+{
+	QString errorMsg;
+	if (jsonResult.contains("error"))
+		errorMsg = jsonResult["error"].toString() + "\n";
+	errorMsg += msg;
+
+	jsonResult["error"] = errorMsg;
+}
+
 // [[Rcpp::export]]
+
+String checkOptions(String jsonValue)
+{
+	hasError = false;
+	StringVector output;
+	init(output);
+
+	engine->clearComponentCache();
+	QJsonObject jsonResult;
+
+	std::string jsonStr = jsonValue.get_cstring();
+	QJsonDocument jsonDoc = QJsonDocument::fromJson(QString::fromStdString(jsonStr).toUtf8());
+	QJsonObject jsonInput = jsonDoc.object();
+
+	QJsonObject optionsJson = jsonInput["options"].toObject();
+	QJsonValue qmlFileJson = jsonInput["qmlFile"];
+
+	QFileInfo	qmlFile(qmlFileJson.toString());
+	if (!qmlFile.exists())
+		addError(jsonResult, "File NOT found");
+
+	QQuickItem* item = nullptr;
+	if (!hasError)
+	{
+		QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
+		QQmlComponent	qmlComp( engine, urlFile, QQmlComponent::PreferSynchronous);
+
+		item = qobject_cast<QQuickItem*>(qmlComp.create());
+
+		for(const auto & error : qmlComp.errors())
+			addError(jsonResult, "Error when creating component at " + QString::number(error.line()) + "," + QString::number(error.column()) + ": " + error.description());
+
+		if (!item)
+			addError(jsonResult, "Item not created");
+	}
+
+	if (!hasError)
+	{
+		application->processEvents();
+
+		QJsonDocument docOptions(optionsJson);
+		QString returnedValue;
+		QMetaObject::invokeMethod(item, "parseOptions",
+			Q_RETURN_ARG(QString, returnedValue),
+			Q_ARG(QString, docOptions.toJson()));
+
+		QJsonDocument docReturned = QJsonDocument::fromJson(returnedValue.toUtf8());
+
+		jsonResult["options"] = docReturned.object();
+	}
+
+	QJsonDocument docResult(jsonResult);
+	std::string srtrResult = docResult.toJson().toStdString();
+	return srtrResult;
+}
+
 
 StringVector runQml(String qmlFileName, String options, String data)
 {

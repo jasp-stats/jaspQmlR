@@ -3,3 +3,6 @@
 runQml <- function(qmlFilePath, options, data) {
     .Call(`_qmlR_runQml`, qmlFilePath, options, data)
 }
+checkOptions <- function(jsonValue) {
+    .Call(`_qmlR_checkOptions`, jsonValue)
+}

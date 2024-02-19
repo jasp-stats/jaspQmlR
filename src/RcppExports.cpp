@@ -19,9 +19,23 @@ BEGIN_RCPP
 END_RCPP
 }
 
+// checkOptions
+String checkOptions(String jsonValue);
+RcppExport SEXP _checkOptions(SEXP jsonValueSEXP) {
+BEGIN_RCPP
+	Rcpp::RObject rcpp_result_gen;
+	Rcpp::RNGScope rcpp_rngScope_gen;
+	Rcpp::traits::input_parameter< String >::type jsonValue(jsonValueSEXP);
+	rcpp_result_gen = Rcpp::wrap(checkOptions(jsonValue));
+	return rcpp_result_gen;
+END_RCPP
+}
+
+
 static const R_CallMethodDef CallEntries[] = {
 	{"_qmlR_runQml", (DL_FUNC) &_runQml, 3},
-    {NULL, NULL, 0}
+	{"_qmlR_checkOptions", (DL_FUNC) &_checkOptions, 1},
+	{NULL, NULL, 0}
 };
 
 RcppExport void R_init_jaspQmlR(DllInfo *dll) {

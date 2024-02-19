@@ -35,7 +35,7 @@ if [ "${JASP_QML_PLUGIN_DIR}" ]; then
         echo "Found JASP_QML_PLUGIN_DIR: ${JASP_QML_PLUGIN_DIR}"
 
 else
-        JASP_QML_PLUGIN_DIR=~/JASP/source/build-jaspQMLComponents-Qt_6_5_2_for_macOS-Debug
+        JASP_QML_PLUGIN_DIR=~/JASP/source/build-jaspQMLComponents-Qt_6_5_2_for_macOS-Release
         echo "USe default JASP_QML_PLUGIN_DIR: ${JASP_QML_PLUGIN_DIR}"
 
 fi
