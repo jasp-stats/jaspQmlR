@@ -21,8 +21,8 @@ using namespace Rcpp;
 #define STRINGIZE(x) _STRINGIZE(x)
 
 static bool initialized							= false;
-static std::string qt_install_dir;
-static std::string jasp_qmlcomponents_dir;
+static QString qt_install_dir;
+static QString jasp_qmlcomponents_dir;
 static QGuiApplication* application				= nullptr;
 static QQmlApplicationEngine* engine			= nullptr;
 static bool hasError							= false;
@@ -62,27 +62,49 @@ String getEnv(const std::string& name)
 	return f();
 }
 
-void init(StringVector& output)
+
+void addMsg(QJsonObject& jsonResult, const QString& msg, const QString& type)
+{
+	QString errorMsg;
+	if (jsonResult.contains(type))
+		errorMsg = jsonResult[type].toString() + "\n";
+	errorMsg += msg;
+
+	jsonResult[type] = errorMsg;
+}
+
+void addError(QJsonObject& jsonResult, const QString& msg)
+{
+	addMsg(jsonResult, msg, "error");
+}
+
+void addInfo(QJsonObject& jsonResult, const QString& msg)
+{
+	addMsg(jsonResult, msg, "info");
+}
+
+
+void init(QJsonObject& output)
 {
 	if (initialized) return;
 	initialized = true;
 
 	qt_install_dir = qgetenv("QT_DIR");
 #ifdef QT_DIR
-	if (qt_install_dir.empty())
+	if (qt_install_dir.isEmpty())
 		qt_install_dir = STRINGIZE(QT_DIR);
 #endif
-	output.push_back("QT_DIR found in environment: " + qt_install_dir);
+	addInfo(output, "QT_DIR found in environment: " + qt_install_dir);
 
 	jasp_qmlcomponents_dir = qgetenv("JASP_QML_PLUGIN_DIR");
 #ifdef JASP_QML_PLUGIN_DIR
-	if (jasp_qmlcomponents_dir.empty())
+	if (jasp_qmlcomponents_dir.isEmpty())
 		jasp_qmlcomponents_dir = STRINGIZE(JASP_QML_PLUGIN_DIR);
 #endif
-	output.push_back("JASP_QML_PLUGIN_DIR found in environment: " + jasp_qmlcomponents_dir);
+	addInfo(output, "JASP_QML_PLUGIN_DIR found in environment: " + jasp_qmlcomponents_dir);
 
 	QString rHome = qgetenv("R_HOME");
-	output.push_back("R_HOME: " + rHome.toStdString());
+	addInfo(output, "R_HOME: " + rHome);
 
 	//QString qmlRFolder = rHome + "/library/jaspQmlR";
 	//QCoreApplication::addLibraryPath(qmlRFolder + "/plugins");
@@ -117,7 +139,7 @@ void init(StringVector& output)
 
 	engine = new QQmlApplicationEngine();
 
-	engine->addImportPath(QString::fromStdString(jasp_qmlcomponents_dir));
+	engine->addImportPath(jasp_qmlcomponents_dir);
 
 	/*output.push_back("Base URL: " + engine->baseUrl().toDisplayString().toStdString());
 	output.push_back("Current Path: " + std::filesystem::current_path().string());
@@ -134,26 +156,15 @@ void init(StringVector& output)
 	printFolder(output, dir); */
 }
 
-void addError(QJsonObject& jsonResult, QString msg)
-{
-	QString errorMsg;
-	if (jsonResult.contains("error"))
-		errorMsg = jsonResult["error"].toString() + "\n";
-	errorMsg += msg;
-
-	jsonResult["error"] = errorMsg;
-}
-
 // [[Rcpp::export]]
 
 String checkOptions(String jsonValue)
 {
 	hasError = false;
-	StringVector output;
-	init(output);
+	QJsonObject jsonResult;
+	init(jsonResult);
 
 	engine->clearComponentCache();
-	QJsonObject jsonResult;
 
 	std::string jsonStr = jsonValue.get_cstring();
 	QJsonDocument jsonDoc = QJsonDocument::fromJson(QString::fromStdString(jsonStr).toUtf8());
@@ -205,7 +216,9 @@ String checkOptions(String jsonValue)
 StringVector runQml(String qmlFileName, String options, String data)
 {
 	StringVector output;
-	init(output);
+	QJsonObject jsonResult;
+
+	init(jsonResult);
 
 	engine->clearComponentCache();
 
