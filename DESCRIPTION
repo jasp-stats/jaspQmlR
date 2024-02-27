@@ -11,4 +11,5 @@ License: GPL (>= 2)
 Imports: Rcpp (>= 1.0.5)
 LinkingTo: Rcpp
 Suggests: 
-    testthat
+    testthat,
+    jaspBase

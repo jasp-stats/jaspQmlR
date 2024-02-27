@@ -35,21 +35,112 @@ if [ "${JASP_QML_PLUGIN_DIR}" ]; then
         echo "Found JASP_QML_PLUGIN_DIR: ${JASP_QML_PLUGIN_DIR}"
 
 else
-        JASP_QML_PLUGIN_DIR=~/JASP/source/build-jaspQMLComponents-Qt_6_5_2_for_macOS-Release
+        JASP_QML_PLUGIN_DIR=~/JASP/source/build-jaspQMLControlsPlugin-Qt_6_5_2_for_macOS-Debug
         echo "USe default JASP_QML_PLUGIN_DIR: ${JASP_QML_PLUGIN_DIR}"
 
 fi
 
+
+DOWNLOAD_SUCCESS=1
+
+if [ "${INCLUDE_DIR}" ]; then
+
+        echo "Found INCLUDE_DIR: ${INCLUDE_DIR}"
+        DOWNLOAD_SUCCESS=0
+        PKG_CXXFLAGS="-I\"${INCLUDE_DIR}\""
+        JASPCOMMONLIB_DIR="${INCLUDE_DIR}"
+
+else
+
+        PKG_CXXFLAGS='-I"../inst/include/jaspCommonLib"'
+        JASPCOMMONLIB_DIR='../inst/include/jaspCommonLib'
+        mkdir -p 'inst/include'
+
+        echo "seeing if git is available"
+        if git --version 2>&1 >/dev/null; then
+
+                if [ -d 'inst/include/jaspCommonLib' ] && [ -d 'inst/include/jaspCommonLib/.git' ]; then
+
+                        echo 'Fetching and pulling existing repo'
+                        WORK_TREE="$(pwd)/inst/include/jaspCommonLib"
+                        git --git-dir="${WORK_TREE}/.git" --work-tree="${WORK_TREE}" fetch origin
+                        git --git-dir="${WORK_TREE}/.git" --work-tree="${WORK_TREE}" pull
+                        DOWNLOAD_SUCCESS=0
+
+                else
+
+                        echo 'Cloning c++ dependency jaspCommonLib'
+                        rm -rf 'inst/include/jaspCommonLib'
+                        git clone --depth 1 https://github.com/jasp-stats/jaspCommonLib.git inst/include/jaspCommonLib
+                        DOWNLOAD_SUCCESS=0
+
+                fi
+
+        fi
+
+        if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+
+                echo "seeing if curl is available"
+                if curl --version 2>&1 >/dev/null; then
+
+                        echo 'Downloading jaspCommonLib with curl'
+
+                        rm -rf 'inst/include/jaspCommonLib'
+                        mkdir -p 'inst/include/jaspCommonLib'
+
+                        curl --silent --location https://api.github.com/repos/jasp-stats/jaspCommonLib/tarball | tar xz --strip=1 --directory inst/include/jaspCommonLib
+                        DOWNLOAD_SUCCESS=$?
+
+                fi
+        fi
+
+        if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+
+                echo "seeing if wget is available"
+                if wget --version 2>&1 >/dev/null; then
+
+                        echo 'Downloading jaspCommonLib with wget'
+
+                        rm -rf 'inst/include/jaspCommonLib'
+                        mkdir -p 'inst/include/jaspCommonLib'
+
+                        wget --quiet --output-document=- https://api.github.com/repos/jasp-stats/jaspCommonLib/tarball | tar xz --strip=1 --directory inst/include/jaspCommonLib
+                        DOWNLOAD_SUCCESS=$?
+
+                fi
+        fi
+fi
+
+if [ "${DOWNLOAD_SUCCESS}" -ne "0" ]; then
+        printf "Installing jaspQmlR failed because the required C++ dependency jaspCommonLib is missing.\n\
+Normally this is downloaded automatically if either git, curl, or wget is available, but apparently this failed.\n\
+Either download \"https://github.com/jasp-stats/jaspCommonLib\" manually and specify the path through configure.args,\
+download git, or download curl.\n\
+If you're specifying configure.args manually, note that you must provide the location of jaspCommonLib and the\
+location of the parent directory (e.g., the default is '-I\"../inst/include/jaspCommonLib\" -I\"../inst/include\"'))
+"
+        exit 1
+fi
+
+SRC_SOURCES="$(cd src/ && ls *.cpp | tr '\n' ' ')"
+
 PKG_LIBS=-g\ -arch\ arm64
 #PKG_LIBS=${PKG_LIBS}\ -isysroot\ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk
 PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
+PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
+PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl,-rpath,${JASP_QML_PLUGIN_DIR}/jaspCommonLib/"
+PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
+PKG_LIBS=${PKG_LIBS}\ "${JASP_QML_PLUGIN_DIR}/jaspCommonLib/libCommonQt.dylib"
 
 PKG_CXXFLAGS=-DQT_DIR="${QT_DIR}"\ -DJASP_QML_PLUGIN_DIR="${JASP_QML_PLUGIN_DIR}"
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DQT_DEBUG_PLUGINS\ -DQT_CORE_LIB\ -DQT_GUI_LIB\ -DQT_NETWORK_LIB\ -DQT_OPENGL_LIB\ -DQT_QMLINTEGRATION_LIB\ -DQT_QMLMODELS_LIB\ -DQT_QML_LIB\ -DQT_QUICK_LIB
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${R_HOME}/library/RInside/include"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASPCOMMONLIB_DIR}"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASPCOMMONLIB_DIR}/QtUtils"
+
 
 if [ "${USE_QML_DEBUG}" ]; then
 
-        PKG_LIBS=${PKG_LIBS}\ -Wl,-rpath,${QT_DIR}/lib
         PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Core_debug.dylib
         PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Gui_debug.dylib
         PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Qml_debug.dylib
@@ -70,8 +161,6 @@ if [ "${USE_QML_DEBUG}" ]; then
 
 else
 
-        PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
-        PKG_LIBS=${PKG_LIBS}\ -Wl,-rpath,${QT_DIR}/lib
         PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuick.framework/Versions/A/QtQuick
         PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQmlModels.framework/Versions/A/QtQmlModels
         PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQml.framework/Versions/A/QtQml

@@ -1,4 +1,3 @@
-
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -16,9 +15,11 @@ using namespace Rcpp;
 #include <filesystem>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include "RDataSetReader.h"
 
 #define _STRINGIZE(x) #x
 #define STRINGIZE(x) _STRINGIZE(x)
+
 
 static bool initialized							= false;
 static QString qt_install_dir;
@@ -26,6 +27,9 @@ static QString jasp_qmlcomponents_dir;
 static QGuiApplication* application				= nullptr;
 static QQmlApplicationEngine* engine			= nullptr;
 static bool hasError							= false;
+static QVariantMap callbacks;
+
+typedef int		(*getColumnCountCallback) ();
 
 void printFolder(StringVector& output, const QDir& dir, int depth = 0)
 {
@@ -83,6 +87,17 @@ void addInfo(QJsonObject& jsonResult, const QString& msg)
 	addMsg(jsonResult, msg, "info");
 }
 
+// [[Rcpp::export]]
+int getColumnCount()
+{
+	Environment pkg = Environment::namespace_env("jaspBase");
+	Function f = pkg["getColumnCount"];
+
+	SEXP ret = f();
+
+	return Rf_asInteger(ret);
+}
+
 
 void init(QJsonObject& output)
 {
@@ -132,14 +147,23 @@ void init(QJsonObject& output)
 	}
 
 
-	//qputenv("QT_QPA_PLATFORM", "cocoa");
-	//qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", qmlRFolder.toStdString() + "/plugins");
+	/* Keep this in case
+	 * qputenv("QT_QPA_PLATFORM", "cocoa");
+	 * qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", qmlRFolder.toStdString() + "/plugins");
+	 */
 
 	application = new QGuiApplication(argc, argvs);
 
 	engine = new QQmlApplicationEngine();
 
 	engine->addImportPath(jasp_qmlcomponents_dir);
+
+	static getColumnCountCallback _getColumnCountCallback = getColumnCount;
+
+	callbacks["getColumnCount"] = QVariant::fromValue(_getColumnCountCallback);
+	engine->rootContext()->setContextProperty("dataProviderCallbacks",	callbacks);
+
+	new RDataSetReader(engine);
 
 	/*output.push_back("Base URL: " + engine->baseUrl().toDisplayString().toStdString());
 	output.push_back("Current Path: " + std::filesystem::current_path().string());
