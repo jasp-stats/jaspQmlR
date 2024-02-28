@@ -5,20 +5,6 @@
 
 using namespace Rcpp;
 
-// runQml
-StringVector runQml(String qmlFilePath, String options, String data);
-RcppExport SEXP _runQml(SEXP qmlFilePathSEXP, SEXP optionsSEXP, SEXP dataSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-	Rcpp::traits::input_parameter< String >::type qmlFilePath(qmlFilePathSEXP);
-	Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
-	Rcpp::traits::input_parameter< String >::type data(dataSEXP);
-	rcpp_result_gen = Rcpp::wrap(runQml(qmlFilePath, options, data));
-    return rcpp_result_gen;
-END_RCPP
-}
-
 // checkOptions
 String checkOptions(String jsonValue);
 RcppExport SEXP _checkOptions(SEXP jsonValueSEXP) {
@@ -31,9 +17,7 @@ BEGIN_RCPP
 END_RCPP
 }
 
-
 static const R_CallMethodDef CallEntries[] = {
-	{"_qmlR_runQml", (DL_FUNC) &_runQml, 3},
 	{"_qmlR_checkOptions", (DL_FUNC) &_checkOptions, 1},
 	{NULL, NULL, 0}
 };

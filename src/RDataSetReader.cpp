@@ -27,12 +27,12 @@ int RDataSetReader::_getColumnCount() const
 	int result = 0;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
-	if (pkg)
-	{
-		Function f = pkg["getColumnCount"];
-		SEXP ret = f();
-		result = Rf_asInteger(ret);
-	}
+	if (!pkg)
+		return result;
+
+	Function f = pkg["getColumnCount"];
+	SEXP ret = f();
+	result = Rf_asInteger(ret);
 
 	return result;
 }
@@ -45,19 +45,18 @@ columnType RDataSetReader::_getColumnType(const QString& colName) const
 		return result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
-	if (pkg)
-	{
-		Function f = pkg["getColumnType"];
+	if (!pkg)
+		return result;
 
-		Rcpp::String colNameRcpp = colName.toStdString();
-		SEXP ret = f(colNameRcpp);
-		std::string retstr = Rcpp::as<Rcpp::String>(ret);
+	Function f = pkg["getColumnType"];
 
-		result = columnTypeFromString(retstr);
-	}
+	Rcpp::String colNameRcpp = colName.toStdString();
+	SEXP ret = f(colNameRcpp);
+	std::string retstr = Rcpp::as<Rcpp::String>(ret);
+
+	result = columnTypeFromString(retstr);
 
 	return result;
-
 }
 
 QStringList RDataSetReader::_getColumnNames() const
@@ -65,12 +64,14 @@ QStringList RDataSetReader::_getColumnNames() const
 	QStringList result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
-	if (pkg)
-	{
-		Function f = pkg["getColumnNames"];
+	if (!pkg)
+		return result;
 
-		SEXP ret = f();
-	}
+	Function f = pkg["getColumnNames"];
+
+	StringVector ret = f();
+	for (const String& elt : ret)
+		result.append(QString::fromStdString(elt));
 
 	return result;
 }
@@ -84,17 +85,16 @@ QStringList RDataSetReader::_getColumnLabels(const QString& colName) const
 		return result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
-	if (pkg)
-	{
-		Function f = pkg["getColumnLabels"];
+	if (!pkg)
+		return result;
 
-		Rcpp::String colNameRcpp = colName.toStdString();
-		SEXP ret = f(colNameRcpp);
+	Function f = pkg["getColumnLabels"];
 
-		Rcpp::CharacterVector retstr = Rcpp::as<Rcpp::CharacterVector>(ret);
-		for (auto s : retstr)
-			result.push_back(QString::fromStdString(Rcpp::as<Rcpp::String>(s)));
-	}
+	Rcpp::String colNameRcpp = colName.toStdString();
+
+	StringVector ret = f(colNameRcpp);
+	for (const String& elt : ret)
+		result.append(QString::fromStdString(elt));
 
 	return result;
 }
@@ -107,14 +107,15 @@ QList<QVariant> RDataSetReader::_getColumnValues(const QString& colName) const
 		return result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
-	if (pkg)
-	{
-		Function f = pkg["getColumnValues"];
+	if (!pkg)
+		return result;
 
-		Rcpp::String colNameRcpp = colName.toStdString();
-		SEXP ret = f(colNameRcpp);
+	Function f = pkg["getColumnValues"];
 
-	}
+	Rcpp::String colNameRcpp = colName.toStdString();
+	DoubleVector ret = f(colNameRcpp);
+	for (auto elt : ret)
+		result.append(elt);
 
 	return result;
 }

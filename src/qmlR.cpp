@@ -27,9 +27,6 @@ static QString jasp_qmlcomponents_dir;
 static QGuiApplication* application				= nullptr;
 static QQmlApplicationEngine* engine			= nullptr;
 static bool hasError							= false;
-static QVariantMap callbacks;
-
-typedef int		(*getColumnCountCallback) ();
 
 void printFolder(StringVector& output, const QDir& dir, int depth = 0)
 {
@@ -80,6 +77,7 @@ void addMsg(QJsonObject& jsonResult, const QString& msg, const QString& type)
 void addError(QJsonObject& jsonResult, const QString& msg)
 {
 	addMsg(jsonResult, msg, "error");
+	hasError = true;
 }
 
 void addInfo(QJsonObject& jsonResult, const QString& msg)
@@ -153,15 +151,9 @@ void init(QJsonObject& output)
 	 */
 
 	application = new QGuiApplication(argc, argvs);
-
 	engine = new QQmlApplicationEngine();
-
 	engine->addImportPath(jasp_qmlcomponents_dir);
-
-	static getColumnCountCallback _getColumnCountCallback = getColumnCount;
-
-	callbacks["getColumnCount"] = QVariant::fromValue(_getColumnCountCallback);
-	engine->rootContext()->setContextProperty("dataProviderCallbacks",	callbacks);
+	engine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
 
 	new RDataSetReader(engine);
 
@@ -222,6 +214,7 @@ String checkOptions(String jsonValue)
 
 		QJsonDocument docOptions(optionsJson);
 		QString returnedValue;
+
 		QMetaObject::invokeMethod(item, "parseOptions",
 			Q_RETURN_ARG(QString, returnedValue),
 			Q_ARG(QString, docOptions.toJson()));
@@ -234,65 +227,4 @@ String checkOptions(String jsonValue)
 	QJsonDocument docResult(jsonResult);
 	std::string srtrResult = docResult.toJson().toStdString();
 	return srtrResult;
-}
-
-
-StringVector runQml(String qmlFileName, String options, String data)
-{
-	StringVector output;
-	QJsonObject jsonResult;
-
-	init(jsonResult);
-
-	engine->clearComponentCache();
-
-	std::string qmlFileNameStr = qmlFileName.get_cstring();
-	std::string optionsStr = options.get_cstring();
-	std::string dataStr = data.get_cstring();
-
-	if (qmlFileNameStr.substr(qmlFileNameStr.length() - 4, 4) != ".qml")
-		qmlFileNameStr += ".qml";
-
-	output.push_back("File: " + qmlFileNameStr);
-
-	QFileInfo	qmlFile(QString::fromStdString(qmlFileNameStr));
-	if (!qmlFile.exists())
-	{
-		output.push_back("File NOT found");
-		return output;
-	}
-
-	output.push_back("Found file");
-
-	QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
-	QQmlComponent	qmlComp( engine, urlFile, QQmlComponent::PreferSynchronous);
-
-	QQuickItem* item = qobject_cast<QQuickItem*>(qmlComp.create());
-
-	for(const auto & error : qmlComp.errors())
-		output.push_back("Error when creating component at " + std::to_string(error.line()) + "," + std::to_string(error.column()) + ": " + error.description().toStdString());
-
-	if (!item)
-	{
-		output.push_back("Item not created");
-		return output;
-	}
-
-	output.push_back("Item created!!!");
-
-	application->processEvents();
-
-	QString returnedValue;
-	/*QMetaObject::invokeMethod(item, "parseOptions",
-		Q_RETURN_ARG(QString, returnedValue),
-		Q_ARG(QString, QString::fromStdString(optionsStr)),
-		Q_ARG(QString, QString::fromStdString(dataStr)));
-	output.push_back("OPTIONS: " + returnedValue.toStdString());
-	*/
-
-	QString myProp = item->property("info").toString();
-	output.push_back("info: " + myProp.toStdString());
-
-
-	return output;
 }
