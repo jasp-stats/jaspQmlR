@@ -85,18 +85,6 @@ void addInfo(QJsonObject& jsonResult, const QString& msg)
 	addMsg(jsonResult, msg, "info");
 }
 
-// [[Rcpp::export]]
-int getColumnCount()
-{
-	Environment pkg = Environment::namespace_env("jaspBase");
-	Function f = pkg["getColumnCount"];
-
-	SEXP ret = f();
-
-	return Rf_asInteger(ret);
-}
-
-
 void init(QJsonObject& output)
 {
 	if (initialized) return;
