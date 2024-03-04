@@ -58,3 +58,6 @@ Thumbs.db
 
 # RStudio files
 .Rproj.user
+
+src/Makewars
+src/Makevars.win

@@ -1,4 +1,4 @@
-# To manually specify a location for QT_DIR and JASP_QML_PLUGIN_DIR do
+# To manually specify a location for QT_DIR, JASP_BUILD or JASPQMLCONTROLSPLUGIN_BUILD_DIR do
 #
 # options(configure.vars = c(jaspQmlR = "QT_DIR='<path>'"))
 # install.packages("jaspQmlR", ...)
@@ -20,40 +20,36 @@ if [ "$UNAME" = "SunOS" ]; then
 fi
 
 if [ "${QT_DIR}" ]; then
-
         echo "Found QT_DIR: ${QT_DIR}"
-
 else
-        #QT_DIR=/Users/brunoboutin/JASP/source/qt-build/install
         QT_DIR=~/Qt/6.5.2/macos
         echo "Use default QT_DIR: ${QT_DIR}"
-
 fi
 
-if [ "${JASP_QML_PLUGIN_DIR}" ]; then
-
-        echo "Found JASP_QML_PLUGIN_DIR: ${JASP_QML_PLUGIN_DIR}"
-
+if [ "${JASPQMLCONTROLSPLUGIN_BUILD_DIR}" ]; then
+        echo "Found JASPQMLCONTROLSPLUGIN_BUILD_DIR: ${JASPQMLCONTROLSPLUGIN_BUILD_DIR}"
+        JASPCOMMONLIB_BIN_DIR="${JASPQMLCONTROLSPLUGIN_BUILD_DIR}"/jaspCommonLib
+elif [ "${JASP_BUILD}" ]; then
+        echo "Found JASP_BUILD: ${JASP_BUILD}"
+        JASPQMLCONTROLSPLUGIN_BUILD_DIR="${JASP_BUILD}"/jaspQMLControlsPlugin
+        JASPCOMMONLIB_BIN_DIR="${JASP_BUILD}"/jaspCommonLib
 else
-        JASP_QML_PLUGIN_DIR=~/JASP/source/build-jaspQMLControlsPlugin-Qt_6_5_2_for_macOS-Debug
-        echo "USe default JASP_QML_PLUGIN_DIR: ${JASP_QML_PLUGIN_DIR}"
-
+        JASPQMLCONTROLSPLUGIN_BUILD_DIR=~/JASP/source/build-jaspQMLControlsPlugin-Qt_6_5_2_for_macOS-Debug
+        echo "Use default JASPQMLCONTROLSPLUGIN_BUILD_DIR: ${JASPQMLCONTROLSPLUGIN_BUILD_DIR}"
+        JASPCOMMONLIB_BIN_DIR="${JASPQMLCONTROLSPLUGIN_BUILD_DIR}"/jaspCommonLib
 fi
 
 
 DOWNLOAD_SUCCESS=1
 
-if [ "${INCLUDE_DIR}" ]; then
+if [ "${JASPCOMMONLIB_SOURCE_DIR}" ]; then
 
-        echo "Found INCLUDE_DIR: ${INCLUDE_DIR}"
+        echo "Found JASPCOMMONLIB_SOURCE_DIR: ${JASPCOMMONLIB_SOURCE_DIR}"
         DOWNLOAD_SUCCESS=0
-        PKG_CXXFLAGS="-I\"${INCLUDE_DIR}\""
-        JASPCOMMONLIB_DIR="${INCLUDE_DIR}"
 
 else
 
-        PKG_CXXFLAGS='-I"../inst/include/jaspCommonLib"'
-        JASPCOMMONLIB_DIR='../inst/include/jaspCommonLib'
+        JASPCOMMONLIB_SOURCE_DIR='../inst/include/jaspCommonLib'
         mkdir -p 'inst/include'
 
         echo "seeing if git is available"
@@ -128,15 +124,15 @@ PKG_LIBS=-g\ -arch\ arm64
 #PKG_LIBS=${PKG_LIBS}\ -isysroot\ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk
 PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
 PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
-PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl,-rpath,${JASP_QML_PLUGIN_DIR}/jaspCommonLib/"
+PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl,-rpath,${JASPCOMMONLIB_BIN_DIR}"
 PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
-PKG_LIBS=${PKG_LIBS}\ "${JASP_QML_PLUGIN_DIR}/jaspCommonLib/libCommonQt.dylib"
+PKG_LIBS=${PKG_LIBS}\ "${JASPCOMMONLIB_BIN_DIR}/libCommonQt.dylib"
 
-PKG_CXXFLAGS=-DQT_DIR="${QT_DIR}"\ -DJASP_QML_PLUGIN_DIR="${JASP_QML_PLUGIN_DIR}"
+PKG_CXXFLAGS=-DQT_DIR="${QT_DIR}"\ -DJASP_QML_PLUGIN_DIR="${JASPQMLCONTROLSPLUGIN_BUILD_DIR}"
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DQT_DEBUG_PLUGINS\ -DQT_CORE_LIB\ -DQT_GUI_LIB\ -DQT_NETWORK_LIB\ -DQT_OPENGL_LIB\ -DQT_QMLINTEGRATION_LIB\ -DQT_QMLMODELS_LIB\ -DQT_QML_LIB\ -DQT_QUICK_LIB
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${R_HOME}/library/RInside/include"
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASPCOMMONLIB_DIR}"
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASPCOMMONLIB_DIR}/QtUtils"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASPCOMMONLIB_SOURCE_DIR}"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASPCOMMONLIB_SOURCE_DIR}/QtUtils"
 
 
 if [ "${USE_QML_DEBUG}" ]; then
