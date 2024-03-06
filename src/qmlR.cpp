@@ -15,6 +15,7 @@ using namespace Rcpp;
 #include <filesystem>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QQuickStyle>
 #include "RDataSetReader.h"
 
 #define _STRINGIZE(x) #x
@@ -142,7 +143,7 @@ void init(QJsonObject& output)
 	engine = new QQmlApplicationEngine();
 	engine->addImportPath(jasp_qmlcomponents_dir);
 	engine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
-	//QQuickStyle::setStyle("Basic");
+	QQuickStyle::setStyle("Basic"); // This removes warnings "The current style does not support customization of this control"
 
 	new RDataSetReader(engine);
 
@@ -162,7 +163,6 @@ void init(QJsonObject& output)
 }
 
 // [[Rcpp::export]]
-
 String checkOptions(String jsonValue)
 {
 	hasError = false;
