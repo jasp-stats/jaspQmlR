@@ -8,7 +8,7 @@ RDataSetReader* RDataSetReader::_singleton = nullptr;
 RDataSetReader::RDataSetReader(QObject *parent)
 {
 	_engine = qobject_cast<QQmlEngine*>(parent);
-	new VariableInfo(this);
+	new VariableInfo(this, parent);
 	_singleton = this;
 }
 
@@ -41,7 +41,7 @@ columnType RDataSetReader::_getColumnType(const QString& colName) const
 {
 	columnType result = columnType::unknown;
 
-	if (colName.isEmpty())
+	if (colName.isEmpty() || !_getColumnNames().contains(colName))
 		return result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
@@ -81,7 +81,7 @@ QStringList RDataSetReader::_getColumnLabels(const QString& colName) const
 {
 	QStringList result;
 
-	if (colName.isEmpty())
+	if (colName.isEmpty() || !_getColumnNames().contains(colName))
 		return result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();
@@ -103,7 +103,7 @@ QList<QVariant> RDataSetReader::_getColumnValues(const QString& colName) const
 {
 	QList<QVariant> result;
 
-	if (colName.isEmpty())
+	if (colName.isEmpty() || !_getColumnNames().contains(colName))
 		return result;
 
 	Environment pkg = Environment::namespace_env("jaspBase"); //_getJaspBase();

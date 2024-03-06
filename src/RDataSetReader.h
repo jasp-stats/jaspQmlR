@@ -14,7 +14,6 @@ public:
 
 
 	QVariant					provideInfo(VariableInfo::InfoType info, const QString& colName = "", int row = 0)		const	override;
-	QAbstractItemModel*			providerModel()																					override		{ return nullptr;	}
 	QQmlContext*				providerQMLContext()																	const	override;
 
 private:
@@ -25,10 +24,8 @@ private:
 	QStringList					_getColumnNames()							const;
 	QStringList					_getColumnLabels(const QString& colName)	const;
 	QList<QVariant>				_getColumnValues(const QString& colName)	const;
-	//static Rcpp::Environment	_getJaspBase();
 
 	QQmlEngine*					_engine					= nullptr;
-	//static Rcpp::Environment	_jaspBaseEnvironment;
 };
 
 

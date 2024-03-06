@@ -133,15 +133,16 @@ void init(QJsonObject& output)
 	}
 
 
-	/* Keep this in case
-	 * qputenv("QT_QPA_PLATFORM", "cocoa");
-	 * qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", qmlRFolder.toStdString() + "/plugins");
-	 */
+	qputenv("QT_QPA_PLATFORM", "minimal");
+	// Keep this in case
+	// qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", qmlRFolder.toStdString() + "/plugins");
+
 
 	application = new QGuiApplication(argc, argvs);
 	engine = new QQmlApplicationEngine();
 	engine->addImportPath(jasp_qmlcomponents_dir);
 	engine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
+	//QQuickStyle::setStyle("Basic");
 
 	new RDataSetReader(engine);
 
@@ -209,7 +210,7 @@ String checkOptions(String jsonValue)
 
 		QJsonDocument docReturned = QJsonDocument::fromJson(returnedValue.toUtf8());
 
-		jsonResult["options"] = docReturned.object();
+		jsonResult = docReturned.object();
 	}
 
 	QJsonDocument docResult(jsonResult);
