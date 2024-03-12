@@ -17,6 +17,7 @@ using namespace Rcpp;
 #include <QJsonObject>
 #include <QQuickStyle>
 #include "RDataSetReader.h"
+#include "qutils.h"
 
 #define _STRINGIZE(x) #x
 #define STRINGIZE(x) _STRINGIZE(x)
@@ -216,4 +217,145 @@ String checkOptions(String jsonValue)
 	QJsonDocument docResult(jsonResult);
 	std::string srtrResult = docResult.toJson().toStdString();
 	return srtrResult;
+}
+
+void _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
+{
+	QQuickItem* item = nullptr;
+	QFileInfo	qmlFile(modulePath + "/inst/qml/" + qmlFileName);
+	if (!qmlFile.exists())
+		addError(jsonResult, "QML File NOT found: " + qmlFile.absoluteFilePath());
+	else
+	{
+		QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
+		QQmlComponent	qmlComp( engine, urlFile, QQmlComponent::PreferSynchronous);
+
+		item = qobject_cast<QQuickItem*>(qmlComp.create());
+
+		for(const auto & error : qmlComp.errors())
+			addError(jsonResult, "Error when creating component at " + QString::number(error.line()) + "," + QString::number(error.column()) + ": " + error.description());
+
+		if (!item)
+			addError(jsonResult, "Item not created");
+	}
+
+	if (!hasError)
+	{
+		QString returnedValue;
+		QString moduleName = QDir(modulePath).dirName();
+
+		application->processEvents();
+
+		QMetaObject::invokeMethod(item, "generateWrapper",
+			Q_RETURN_ARG(QString, returnedValue),
+			Q_ARG(QString, moduleName),
+			Q_ARG(QString, analysisName),
+			Q_ARG(QString, qmlFileName)
+		);
+
+		QFile file(modulePath + "/R/" + analysisName + "Wrapper.R");
+		if (file.open(QIODevice::ReadWrite)) {
+			QTextStream stream(&file);
+			stream << returnedValue;
+		}
+	}
+}
+
+// [[Rcpp::export]]
+String generateModuleWrappers(String modulePath)
+{
+	hasError = false;
+	QJsonObject jsonResult;
+	init(jsonResult);
+
+	engine->clearComponentCache();
+
+	QString modulePathQ		= tq(modulePath.get_cstring()),
+			moduleNameQ;
+
+	QDir moduleDir(modulePathQ);
+
+	if (!moduleDir.exists())
+		addError(jsonResult, "Module path not found: " + modulePathQ);
+
+	QVector<std::pair<QString, QString> > analyses;
+	if (!hasError)
+	{
+		QFile qmlDescriptionFile(modulePathQ + "/inst/Description.qml");
+		if (!qmlDescriptionFile.exists())
+			addError(jsonResult, "Description.qml file not found in " + modulePathQ);
+		else
+		{
+			QString fileContent;
+			QStringList analysesPart;
+			if (qmlDescriptionFile.open(QIODevice::ReadOnly))
+			{
+				fileContent = qmlDescriptionFile.readAll();
+				analysesPart = fileContent.split("Analysis");
+				for (int i = 1; i < analysesPart.length(); i++)
+				{
+					QStringList lines = analysesPart[i].split("\n");
+					QString analysisName, qmlFileName;
+
+					for (QString line : lines)
+					{
+						line = line.trimmed();
+						if (line.startsWith("func"))
+							analysisName = line.split(":")[1].trimmed().replace('"', "");
+						else if (line.startsWith("qml"))
+							qmlFileName = line.split(":")[1].trimmed().replace('"', "");
+					}
+
+					if (!analysisName.isEmpty())
+					{
+						if (qmlFileName.isEmpty())
+							qmlFileName = analysisName + ".qml";
+						analyses.append(std::make_pair(analysisName, qmlFileName));
+					}
+				}
+			}
+		}
+	}
+
+	QString result;
+	for (auto analysis : analyses)
+	{
+		result.append("Analysis " + analysis.first + " with qml file " + analysis.second + "\n");
+		_generateWrapper(jsonResult, modulePathQ, analysis.first, analysis.second);
+	}
+
+	if (hasError)
+		return fq(jsonResult["error"].toString());
+	else
+		return fq(result);
+}
+
+
+// [[Rcpp::export]]
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName)
+{
+	hasError = false;
+	QJsonObject jsonResult;
+	init(jsonResult);
+
+	engine->clearComponentCache();
+
+	QString qmlFileNameQ	= tq(qmlFileName.get_cstring()),
+			modulePathQ		= tq(modulePath.get_cstring()),
+			moduleNameQ,
+			analysisNameQ	= tq(analysisName.get_cstring());
+
+	QDir moduleDir(modulePathQ);
+	QQuickItem* item = nullptr;
+
+	if (!moduleDir.exists())
+		addError(jsonResult, "Module path not found: " + modulePathQ);
+
+	if (!hasError)
+		_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ);
+
+	if (!hasError)
+		return "Wrapper generated for analysis " + fq(analysisNameQ);
+	else
+		return fq(jsonResult["error"].toString());
 }

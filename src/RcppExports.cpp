@@ -17,8 +17,38 @@ BEGIN_RCPP
 END_RCPP
 }
 
+
+// generateAnalysisWrapper
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName);
+RcppExport SEXP _generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP) {
+BEGIN_RCPP
+	Rcpp::RObject rcpp_result_gen;
+	Rcpp::RNGScope rcpp_rngScope_gen;
+	Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
+	Rcpp::traits::input_parameter< String >::type qmlFileName(qmlFileNameSEXP);
+	Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+	rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName));
+	return rcpp_result_gen;
+END_RCPP
+}
+
+// generateModuleWrappers
+String generateModuleWrappers(String modulePath);
+RcppExport SEXP _generateModuleWrappers(SEXP modulePathSEXP) {
+BEGIN_RCPP
+	Rcpp::RObject rcpp_result_gen;
+	Rcpp::RNGScope rcpp_rngScope_gen;
+	Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
+	rcpp_result_gen = Rcpp::wrap(generateModuleWrappers(modulePath));
+	return rcpp_result_gen;
+END_RCPP
+}
+
+
 static const R_CallMethodDef CallEntries[] = {
 	{"_qmlR_checkOptions", (DL_FUNC) &_checkOptions, 1},
+	{"_qmlR_generateAnalysisWrapper", (DL_FUNC) &_generateAnalysisWrapper, 3},
+	{"_qmlR_generateModuleWrappers", (DL_FUNC) &_generateModuleWrappers, 1},
 	{NULL, NULL, 0}
 };
 

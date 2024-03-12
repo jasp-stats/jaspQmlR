@@ -3,3 +3,11 @@
 checkOptions <- function(jsonValue) {
     .Call(`_qmlR_checkOptions`, jsonValue)
 }
+
+generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName) {
+    .Call(`_qmlR_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName)
+}
+
+generateModuleWrappers <- function(modulePath) {
+    .Call(`_qmlR_generateModuleWrappers`, modulePath)
+}
