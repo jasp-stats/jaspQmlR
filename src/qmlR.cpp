@@ -16,8 +16,19 @@ using namespace Rcpp;
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QQuickStyle>
-#include "RDataSetReader.h"
 #include "qutils.h"
+#include "preferencesmodelbase.h"
+#include "jasptheme.h"
+#include "controls/jaspcontrol.h"
+#include <qdebug.h>
+#include "knownissues.h"
+#include "qmlutils.h"
+#include "dataset.h"
+#include "databaseinterface.h"
+#include "columnutils.h"
+
+#include <QtPlugin>
+Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
 
 #define _STRINGIZE(x) #x
 #define STRINGIZE(x) _STRINGIZE(x)
@@ -29,6 +40,112 @@ static QString jasp_qmlcomponents_dir;
 static QGuiApplication* application				= nullptr;
 static QQmlApplicationEngine* engine			= nullptr;
 static bool hasError							= false;
+
+
+static DatabaseInterface*	_db					= nullptr;
+static DataSet*				_dataset			= nullptr;
+
+
+// [[Rcpp::export]]
+String test(Rcpp::DataFrame data)
+{
+
+	Rcpp::CharacterVector names  = data.names();
+
+	int i = 0;
+
+	return "Hallo";
+
+
+}
+
+
+
+template<int RTYPE>  inline std::string RVectorEntry_to_String(Rcpp::Vector<RTYPE> obj, int row) { return ""; }
+
+template<> inline std::string RVectorEntry_to_String<INTSXP>(Rcpp::Vector<INTSXP> obj, int row)
+{
+	return obj[row] == NA_INTEGER	? "" : std::to_string((int)(obj[row]));
+}
+
+template<> inline std::string RVectorEntry_to_String<LGLSXP>(Rcpp::Vector<LGLSXP> obj, int row)
+{
+	return obj[row] == NA_LOGICAL	? "" : std::to_string((bool)(obj[row]));
+}
+
+template<> inline std::string RVectorEntry_to_String<STRSXP>(Rcpp::Vector<STRSXP> obj, int row)
+{
+	return obj[row] == NA_STRING	? "" : std::string(obj[row]);
+}
+
+template<> inline std::string RVectorEntry_to_String<REALSXP>(Rcpp::Vector<REALSXP> obj, int row)
+{
+	double val = static_cast<double>(obj[row]);
+	return	R_IsNA(val) ? "" :
+					  R_IsNaN(val) ? "NaN" :
+										  val == std::numeric_limits<double>::infinity() ? "\u221E" :
+												val == -1 * std::numeric_limits<double>::infinity() ? "-\u221E"  :
+											ColumnUtils::doubleToString((double)(obj[row]));
+}
+
+
+template<int RTYPE>
+std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj)
+{
+	std::vector<std::string> vecresult;
+	for(int row=0; row<obj.size(); row++)
+		vecresult.push_back(RVectorEntry_to_String(obj, row));
+
+	return vecresult;
+}
+
+// [[Rcpp::export]]
+void loadDataSet(Rcpp::List data)
+{
+	if (_db == nullptr)
+		_db	= new DatabaseInterface(true, true);
+
+	if (_dataset)
+		delete _dataset;
+
+	_dataset = new DataSet();
+
+
+	Rcpp::RObject namesListRObject = data.names();
+	Rcpp::CharacterVector namesList;
+
+	if (!namesListRObject.isNULL())
+		namesList = namesListRObject;
+
+	std::string hello;
+
+
+	_dataset->setColumnCount(data.size());
+
+	for (int colNr = 0; colNr < data.size(); colNr++)
+	{
+		std::string name(namesList[colNr]);
+		std::vector<std::string> column;
+
+		if(name == "")
+			name = "column_" + std::to_string(colNr);
+
+		Rcpp::RObject colObj = (Rcpp::RObject)data[colNr];
+
+		if(Rcpp::is<Rcpp::NumericVector>(colObj))			column = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
+		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		column = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
+		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		column = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
+		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	column = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
+		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
+
+		if (colNr == 0)
+			_dataset->setRowCount(column.size());
+
+		_dataset->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, 10, true);
+	}
+
+}
+
 
 void printFolder(StringVector& output, const QDir& dir, int depth = 0)
 {
@@ -87,6 +204,36 @@ void addInfo(QJsonObject& jsonResult, const QString& msg)
 	addMsg(jsonResult, msg, "info");
 }
 
+void addContextObjects(QQmlApplicationEngine* engine)
+{
+	QLocale::setDefault(QLocale(QLocale::English)); // make decimal points == .
+
+	QmlUtils::setGlobalPropertiesInQMLContext(engine->rootContext());
+
+	PreferencesModelBase* prefModel = engine->rootContext()->contextProperty("preferencesModel").value<PreferencesModelBase*>();
+	if (prefModel == nullptr)
+	{
+		prefModel = new PreferencesModelBase();
+		engine->rootContext()->setContextProperty("preferencesModel",		prefModel);
+	}
+
+	if (engine->rootContext()->contextProperty("jaspTheme").isNull())
+	{
+		JaspTheme* defaultJaspTheme = new JaspTheme();
+		defaultJaspTheme->setIconPath("/default/");
+		engine->rootContext()->setContextProperty("jaspTheme",				defaultJaspTheme	);
+	}
+
+	qmlRegisterUncreatableMetaObject(JASPControl::staticMetaObject, // static meta object
+									 "JASP.Controls",        // import statement
+									 0, 1,                   // major and minor version of the import
+									 "JASP",                 // name in QML
+									 "Error: only enums");
+	if (!KnownIssues::issues())
+		new KnownIssues();
+
+}
+
 void init(QJsonObject& output)
 {
 	if (initialized) return;
@@ -99,12 +246,6 @@ void init(QJsonObject& output)
 #endif
 	addInfo(output, "QT_DIR found in environment: " + qt_install_dir);
 
-	jasp_qmlcomponents_dir = qgetenv("JASP_QML_PLUGIN_DIR");
-#ifdef JASP_QML_PLUGIN_DIR
-	if (jasp_qmlcomponents_dir.isEmpty())
-		jasp_qmlcomponents_dir = STRINGIZE(JASP_QML_PLUGIN_DIR);
-#endif
-	addInfo(output, "JASP_QML_PLUGIN_DIR found in environment: " + jasp_qmlcomponents_dir);
 
 	QString rHome = qgetenv("R_HOME");
 	addInfo(output, "R_HOME: " + rHome);
@@ -142,11 +283,14 @@ void init(QJsonObject& output)
 
 	application = new QGuiApplication(argc, argvs);
 	engine = new QQmlApplicationEngine();
-	engine->addImportPath(jasp_qmlcomponents_dir);
+
+	addContextObjects(engine);
+
+	engine->addImportPath(":/jasp-stats.org/imports");
 	engine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
 	QQuickStyle::setStyle("Basic"); // This removes warnings "The current style does not support customization of this control"
 
-	new RDataSetReader(engine);
+	//new RDataSetReader(engine);
 
 	/*output.push_back("Base URL: " + engine->baseUrl().toDisplayString().toStdString());
 	output.push_back("Current Path: " + std::filesystem::current_path().string());
@@ -164,7 +308,7 @@ void init(QJsonObject& output)
 }
 
 // [[Rcpp::export]]
-String checkOptions(String jsonValue)
+String loadQmlFileAndCheckOptions(String qmlFile, String options, String version)
 {
 	hasError = false;
 	QJsonObject jsonResult;
@@ -172,21 +316,18 @@ String checkOptions(String jsonValue)
 
 	engine->clearComponentCache();
 
-	std::string jsonStr = jsonValue.get_cstring();
-	QJsonDocument jsonDoc = QJsonDocument::fromJson(QString::fromStdString(jsonStr).toUtf8());
-	QJsonObject jsonInput = jsonDoc.object();
+	std::string qmlFileStr = qmlFile.get_cstring(),
+				optionsStr = options.get_cstring(),
+				versionStr = version.get_cstring();
 
-	QJsonObject optionsJson = jsonInput["options"].toObject();
-	QJsonValue qmlFileJson = jsonInput["qmlFile"];
-
-	QFileInfo	qmlFile(qmlFileJson.toString());
-	if (!qmlFile.exists())
+	QFileInfo	qmlFileInfo(QString::fromStdString(qmlFileStr));
+	if (!qmlFileInfo.exists())
 		addError(jsonResult, "File NOT found");
 
 	QQuickItem* item = nullptr;
 	if (!hasError)
 	{
-		QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
+		QUrl urlFile = QUrl::fromLocalFile(qmlFileInfo.absoluteFilePath());
 		QQmlComponent	qmlComp( engine, urlFile, QQmlComponent::PreferSynchronous);
 
 		item = qobject_cast<QQuickItem*>(qmlComp.create());
@@ -202,12 +343,11 @@ String checkOptions(String jsonValue)
 	{
 		application->processEvents();
 
-		QJsonDocument docOptions(optionsJson);
 		QString returnedValue;
 
 		QMetaObject::invokeMethod(item, "parseOptions",
 			Q_RETURN_ARG(QString, returnedValue),
-			Q_ARG(QString, docOptions.toJson()));
+			Q_ARG(QString, QString::fromStdString(optionsStr)));
 
 		QJsonDocument docReturned = QJsonDocument::fromJson(returnedValue.toUtf8());
 
@@ -346,7 +486,6 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 			analysisNameQ	= tq(analysisName.get_cstring());
 
 	QDir moduleDir(modulePathQ);
-	QQuickItem* item = nullptr;
 
 	if (!moduleDir.exists())
 		addError(jsonResult, "Module path not found: " + modulePathQ);
@@ -359,3 +498,10 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	else
 		return fq(jsonResult["error"].toString());
 }
+
+
+
+
+
+
+
