@@ -23,9 +23,12 @@ using namespace Rcpp;
 #include <qdebug.h>
 #include "knownissues.h"
 #include "qmlutils.h"
-#include "dataset.h"
-#include "databaseinterface.h"
 #include "columnutils.h"
+#include "DataSetProvider.h"
+#include "enginebase.h"
+#include "rbridge.h"
+#include "processinfo.h"
+#include "tempfiles.h"
 
 #include <QtPlugin>
 Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
@@ -34,31 +37,42 @@ Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
 #define STRINGIZE(x) _STRINGIZE(x)
 
 
-static bool initialized							= false;
-static QString qt_install_dir;
-static QString jasp_qmlcomponents_dir;
-static QGuiApplication* application				= nullptr;
-static QQmlApplicationEngine* engine			= nullptr;
-static bool hasError							= false;
+static bool								initialized					= false;
+static QString							qt_install_dir;
+static QGuiApplication			*		application					= nullptr;
+static QQmlApplicationEngine	*		qtQmlEngine					= nullptr;
+static EngineBase				*		jaspEngine					= nullptr;
+static bool								dbInMemory					= true;
+static std::string						resultFont					=
+#ifdef WIN32
+	"Arial,sans-serif,freesans,\"Segoe UI\"";
+#elif __APPLE__
+	"\"Lucida Grande\",Helvetica,Arial,sans-serif,\"Helvetica Neue\",freesans";
+#else
+	"freesans,sans-serif";
+#endif
 
-
-static DatabaseInterface*	_db					= nullptr;
-static DataSet*				_dataset			= nullptr;
 
 
 // [[Rcpp::export]]
-String test(Rcpp::DataFrame data)
+bool setParameter(String name, String value)
 {
+	std::string nameStr		= name.get_cstring(),
+				valueStr	= value.get_cstring();
 
-	Rcpp::CharacterVector names  = data.names();
+	if (nameStr == "resultFont")
+	{
+		resultFont = valueStr;
+		return true;
+	}
+	else if (nameStr == "dbInMemory")
+	{
+		dbInMemory = (valueStr == "true" || valueStr == "TRUE" || valueStr == "1");
+		return true;
+	}
 
-	int i = 0;
-
-	return "Hallo";
-
-
+	return false;
 }
-
 
 
 template<int RTYPE>  inline std::string RVectorEntry_to_String(Rcpp::Vector<RTYPE> obj, int row) { return ""; }
@@ -70,7 +84,7 @@ template<> inline std::string RVectorEntry_to_String<INTSXP>(Rcpp::Vector<INTSXP
 
 template<> inline std::string RVectorEntry_to_String<LGLSXP>(Rcpp::Vector<LGLSXP> obj, int row)
 {
-	return obj[row] == NA_LOGICAL	? "" : std::to_string((bool)(obj[row]));
+	return obj[row] == NA_LOGICAL	? "" : ((bool)(obj[row]) ? "1" : "0");
 }
 
 template<> inline std::string RVectorEntry_to_String<STRSXP>(Rcpp::Vector<STRSXP> obj, int row)
@@ -102,14 +116,8 @@ std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj)
 // [[Rcpp::export]]
 void loadDataSet(Rcpp::List data)
 {
-	if (_db == nullptr)
-		_db	= new DatabaseInterface(true, true);
 
-	if (_dataset)
-		delete _dataset;
-
-	_dataset = new DataSet();
-
+	DataSetProvider* provider = DataSetProvider::getProvider(dbInMemory);
 
 	Rcpp::RObject namesListRObject = data.names();
 	Rcpp::CharacterVector namesList;
@@ -120,7 +128,9 @@ void loadDataSet(Rcpp::List data)
 	std::string hello;
 
 
-	_dataset->setColumnCount(data.size());
+	provider->dataSet()->setColumnCount(data.size());
+
+	int maxRows = 0;
 
 	for (int colNr = 0; colNr < data.size(); colNr++)
 	{
@@ -132,16 +142,25 @@ void loadDataSet(Rcpp::List data)
 
 		Rcpp::RObject colObj = (Rcpp::RObject)data[colNr];
 
+		// TODO: This could be made more efficient: if we have integers or doubles, initialize the column in the dataset directly with these integers and doubles
+		// Now we transform them into strings, and inside initColumnWithStrings re-transform them into integers or doubles.
 		if(Rcpp::is<Rcpp::NumericVector>(colObj))			column = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
 		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		column = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
 		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		column = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
 		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	column = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
 		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
+		else
+		{
+			// TODO print an error
+			column = std::vector<std::string>(maxRows);
+		}
 
-		if (colNr == 0)
-			_dataset->setRowCount(column.size());
+		if (column.size() > maxRows)
+			maxRows = column.size();
+		if (provider->dataSet()->rowCount() < maxRows)
+			provider->dataSet()->setRowCount(maxRows);
 
-		_dataset->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, 10, true);
+		provider->dataSet()->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, 10, true);
 	}
 
 }
@@ -196,7 +215,6 @@ void addMsg(QJsonObject& jsonResult, const QString& msg, const QString& type)
 void addError(QJsonObject& jsonResult, const QString& msg)
 {
 	addMsg(jsonResult, msg, "error");
-	hasError = true;
 }
 
 void addInfo(QJsonObject& jsonResult, const QString& msg)
@@ -221,7 +239,7 @@ void addContextObjects(QQmlApplicationEngine* engine)
 	{
 		JaspTheme* defaultJaspTheme = new JaspTheme();
 		defaultJaspTheme->setIconPath("/default/");
-		engine->rootContext()->setContextProperty("jaspTheme",				defaultJaspTheme	);
+		engine->rootContext()->setContextProperty("jaspTheme",				defaultJaspTheme);
 	}
 
 	qmlRegisterUncreatableMetaObject(JASPControl::staticMetaObject, // static meta object
@@ -234,10 +252,23 @@ void addContextObjects(QQmlApplicationEngine* engine)
 
 }
 
+void DummySendFunctionForJaspresults(const char * msg) {}
+bool DummyPollMessagesFunctionForJaspResults() { return false; }
+
 void init(QJsonObject& output)
 {
 	if (initialized) return;
 	initialized = true;
+
+	TempFiles::init(ProcessInfo::currentPID());
+
+	DataSetProvider::getProvider(dbInMemory, false); // Create the DataSetProvider in case the loadDataSet was not already called
+
+	jaspEngine = new EngineBase(ProcessInfo::currentPID(), dbInMemory);
+	ColumnEncoder* extraEncodings = new ColumnEncoder("JaspExtraOptions_");
+
+	rbridge_init(jaspEngine, DummySendFunctionForJaspresults, DummyPollMessagesFunctionForJaspResults, extraEncodings, resultFont.c_str());
+
 
 	qt_install_dir = qgetenv("QT_DIR");
 #ifdef QT_DIR
@@ -282,23 +313,23 @@ void init(QJsonObject& output)
 
 
 	application = new QGuiApplication(argc, argvs);
-	engine = new QQmlApplicationEngine();
+	qtQmlEngine = new QQmlApplicationEngine();
 
-	addContextObjects(engine);
+	addContextObjects(qtQmlEngine);
 
-	engine->addImportPath(":/jasp-stats.org/imports");
-	engine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
+	qtQmlEngine->addImportPath(":/jasp-stats.org/imports");
+	qtQmlEngine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
 	QQuickStyle::setStyle("Basic"); // This removes warnings "The current style does not support customization of this control"
 
-	//new RDataSetReader(engine);
+	//new RDataSetReader(qtQmlEngine);
 
-	/*output.push_back("Base URL: " + engine->baseUrl().toDisplayString().toStdString());
+	/*output.push_back("Base URL: " + qtQmlEngine->baseUrl().toDisplayString().toStdString());
 	output.push_back("Current Path: " + std::filesystem::current_path().string());
 
-	QStringList paths = engine->importPathList();
+	QStringList paths = qtQmlEngine->importPathList();
 	for (QString path : paths)
 		output.push_back("Import path: " + path.toStdString());
-	QStringList pluginPaths = engine->pluginPathList();
+	QStringList pluginPaths = qtQmlEngine->pluginPathList();
 	for (QString path : pluginPaths)
 		output.push_back("Plugin path: " + path.toStdString());
 
@@ -310,11 +341,11 @@ void init(QJsonObject& output)
 // [[Rcpp::export]]
 String loadQmlFileAndCheckOptions(String qmlFile, String options, String version)
 {
-	hasError = false;
+	bool hasError = false;
 	QJsonObject jsonResult;
 	init(jsonResult);
 
-	engine->clearComponentCache();
+	qtQmlEngine->clearComponentCache();
 
 	std::string qmlFileStr = qmlFile.get_cstring(),
 				optionsStr = options.get_cstring(),
@@ -322,21 +353,30 @@ String loadQmlFileAndCheckOptions(String qmlFile, String options, String version
 
 	QFileInfo	qmlFileInfo(QString::fromStdString(qmlFileStr));
 	if (!qmlFileInfo.exists())
+	{
+		hasError = true;
 		addError(jsonResult, "File NOT found");
+	}
 
 	QQuickItem* item = nullptr;
 	if (!hasError)
 	{
 		QUrl urlFile = QUrl::fromLocalFile(qmlFileInfo.absoluteFilePath());
-		QQmlComponent	qmlComp( engine, urlFile, QQmlComponent::PreferSynchronous);
+		QQmlComponent	qmlComp( qtQmlEngine, urlFile, QQmlComponent::PreferSynchronous);
 
 		item = qobject_cast<QQuickItem*>(qmlComp.create());
 
 		for(const auto & error : qmlComp.errors())
+		{
+			hasError = true;
 			addError(jsonResult, "Error when creating component at " + QString::number(error.line()) + "," + QString::number(error.column()) + ": " + error.description());
+		}
 
 		if (!item)
+		{
+			hasError = true;
 			addError(jsonResult, "Item not created");
+		}
 	}
 
 	if (!hasError)
@@ -359,24 +399,35 @@ String loadQmlFileAndCheckOptions(String qmlFile, String options, String version
 	return srtrResult;
 }
 
-void _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
+bool _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
 {
+	bool hasError = false;
 	QQuickItem* item = nullptr;
 	QFileInfo	qmlFile(modulePath + "/inst/qml/" + qmlFileName);
+
 	if (!qmlFile.exists())
+	{
+		hasError = true;
 		addError(jsonResult, "QML File NOT found: " + qmlFile.absoluteFilePath());
+	}
 	else
 	{
 		QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
-		QQmlComponent	qmlComp( engine, urlFile, QQmlComponent::PreferSynchronous);
+		QQmlComponent	qmlComp( qtQmlEngine, urlFile, QQmlComponent::PreferSynchronous);
 
 		item = qobject_cast<QQuickItem*>(qmlComp.create());
 
 		for(const auto & error : qmlComp.errors())
+		{
+			hasError = true;
 			addError(jsonResult, "Error when creating component at " + QString::number(error.line()) + "," + QString::number(error.column()) + ": " + error.description());
+		}
 
 		if (!item)
+		{
+			hasError = true;
 			addError(jsonResult, "Item not created");
+		}
 	}
 
 	if (!hasError)
@@ -399,16 +450,18 @@ void _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const 
 			stream << returnedValue;
 		}
 	}
+
+	return !hasError;
 }
 
 // [[Rcpp::export]]
 String generateModuleWrappers(String modulePath)
 {
-	hasError = false;
+	bool hasError = false;
 	QJsonObject jsonResult;
 	init(jsonResult);
 
-	engine->clearComponentCache();
+	qtQmlEngine->clearComponentCache();
 
 	QString modulePathQ		= tq(modulePath.get_cstring()),
 			moduleNameQ;
@@ -416,14 +469,20 @@ String generateModuleWrappers(String modulePath)
 	QDir moduleDir(modulePathQ);
 
 	if (!moduleDir.exists())
+	{
+		hasError = true;
 		addError(jsonResult, "Module path not found: " + modulePathQ);
+	}
 
 	QVector<std::pair<QString, QString> > analyses;
 	if (!hasError)
 	{
 		QFile qmlDescriptionFile(modulePathQ + "/inst/Description.qml");
 		if (!qmlDescriptionFile.exists())
+		{
+			hasError = true;
 			addError(jsonResult, "Description.qml file not found in " + modulePathQ);
+		}
 		else
 		{
 			QString fileContent;
@@ -461,7 +520,7 @@ String generateModuleWrappers(String modulePath)
 	for (auto analysis : analyses)
 	{
 		result.append("Analysis " + analysis.first + " with qml file " + analysis.second + "\n");
-		_generateWrapper(jsonResult, modulePathQ, analysis.first, analysis.second);
+		hasError = !_generateWrapper(jsonResult, modulePathQ, analysis.first, analysis.second);
 	}
 
 	if (hasError)
@@ -474,11 +533,11 @@ String generateModuleWrappers(String modulePath)
 // [[Rcpp::export]]
 String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName)
 {
-	hasError = false;
+	bool hasError = false;
 	QJsonObject jsonResult;
 	init(jsonResult);
 
-	engine->clearComponentCache();
+	qtQmlEngine->clearComponentCache();
 
 	QString qmlFileNameQ	= tq(qmlFileName.get_cstring()),
 			modulePathQ		= tq(modulePath.get_cstring()),
@@ -491,7 +550,7 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 		addError(jsonResult, "Module path not found: " + modulePathQ);
 
 	if (!hasError)
-		_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ);
+		hasError = !_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ);
 
 	if (!hasError)
 		return "Wrapper generated for analysis " + fq(analysisNameQ);

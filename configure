@@ -63,11 +63,15 @@ PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/controls
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/rsyntax
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/ALTNavigation
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/utilities
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/EngineLib
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/R-Interface
 
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComponentsplugin.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/EngineLib/libEngineLib.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-Interface.a
 
 if [ "${USE_QML_DEBUG}" ]; then
 
@@ -99,7 +103,7 @@ else
 #        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtGui.framework/Versions/A/QtGui
 #        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtCore.framework/Versions/A/QtCore
 
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
+		PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
 		PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
 
         PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtCore.framework/Headers

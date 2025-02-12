@@ -10,14 +10,15 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// test
-String test(Rcpp::DataFrame data);
-RcppExport SEXP _jaspQmlR_test(SEXP dataSEXP) {
+// setParameter
+bool setParameter(String name, String value);
+RcppExport SEXP _jaspQmlR_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type data(dataSEXP);
-    rcpp_result_gen = Rcpp::wrap(test(data));
+    Rcpp::traits::input_parameter< String >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< String >::type value(valueSEXP);
+    rcpp_result_gen = Rcpp::wrap(setParameter(name, value));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -70,7 +71,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_jaspQmlR_test", (DL_FUNC) &_jaspQmlR_test, 1},
+    {"_jaspQmlR_setParameter", (DL_FUNC) &_jaspQmlR_setParameter, 2},
     {"_jaspQmlR_loadDataSet", (DL_FUNC) &_jaspQmlR_loadDataSet, 1},
     {"_jaspQmlR_loadQmlFileAndCheckOptions", (DL_FUNC) &_jaspQmlR_loadQmlFileAndCheckOptions, 3},
     {"_jaspQmlR_generateModuleWrappers", (DL_FUNC) &_jaspQmlR_generateModuleWrappers, 1},
