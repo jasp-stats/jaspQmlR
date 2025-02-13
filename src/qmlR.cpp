@@ -13,8 +13,6 @@ using namespace Rcpp;
 #include <QQuickItem>
 #include <QDir>
 #include <filesystem>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QQuickStyle>
 #include "qutils.h"
 #include "preferencesmodelbase.h"
@@ -42,7 +40,10 @@ static QString							qt_install_dir;
 static QGuiApplication			*		application					= nullptr;
 static QQmlApplicationEngine	*		qtQmlEngine					= nullptr;
 static EngineBase				*		jaspEngine					= nullptr;
+static ColumnEncoder			*		extraEncodings				= nullptr;
+
 static bool								dbInMemory					= true;
+static bool								preloadData					= true;
 static std::string						resultFont					=
 #ifdef WIN32
 	"Arial,sans-serif,freesans,\"Segoe UI\"";
@@ -68,6 +69,11 @@ bool setParameter(String name, String value)
 	else if (nameStr == "dbInMemory")
 	{
 		dbInMemory = (valueStr == "true" || valueStr == "TRUE" || valueStr == "1");
+		return true;
+	}
+	else if (nameStr == "preloadData")
+	{
+		preloadData = (valueStr == "true" || valueStr == "TRUE" || valueStr == "1");
 		return true;
 	}
 
@@ -202,22 +208,22 @@ String getEnv(const std::string& name)
 }
 
 
-void addMsg(QJsonObject& jsonResult, const QString& msg, const QString& type)
+void addMsg(Json::Value& jsonResult, const std::string& msg, const std::string& type)
 {
-	QString errorMsg;
-	if (jsonResult.contains(type))
-		errorMsg = jsonResult[type].toString() + "\n";
+	std::string errorMsg;
+	if (jsonResult.isMember(type))
+		errorMsg = jsonResult[type].toStyledString() + "\n";
 	errorMsg += msg;
 
 	jsonResult[type] = errorMsg;
 }
 
-void addError(QJsonObject& jsonResult, const QString& msg)
+void addError(Json::Value& jsonResult, const std::string& msg)
 {
 	addMsg(jsonResult, msg, "error");
 }
 
-void addInfo(QJsonObject& jsonResult, const QString& msg)
+void addInfo(Json::Value& jsonResult, const std::string& msg)
 {
 	addMsg(jsonResult, msg, "info");
 }
@@ -255,7 +261,7 @@ void addContextObjects(QQmlApplicationEngine* engine)
 void DummySendFunctionForJaspresults(const char * msg) {}
 bool DummyPollMessagesFunctionForJaspResults() { return false; }
 
-void init(QJsonObject& output)
+void init(Json::Value& output)
 {
 	if (initialized) return;
 	initialized = true;
@@ -265,7 +271,7 @@ void init(QJsonObject& output)
 	DataSetProvider::getProvider(dbInMemory, false); // Create the DataSetProvider in case the loadDataSet was not already called
 
 	jaspEngine = new EngineBase(ProcessInfo::currentPID(), dbInMemory);
-	ColumnEncoder* extraEncodings = new ColumnEncoder("JaspExtraOptions_");
+	extraEncodings = new ColumnEncoder("JaspExtraOptions_");
 
 	rbridge_init(jaspEngine, DummySendFunctionForJaspresults, DummyPollMessagesFunctionForJaspResults, extraEncodings, resultFont.c_str());
 
@@ -275,11 +281,11 @@ void init(QJsonObject& output)
 	if (qt_install_dir.isEmpty())
 		qt_install_dir = STRINGIZE(QT_DIR);
 #endif
-	addInfo(output, "QT_DIR found in environment: " + qt_install_dir);
+	addInfo(output, "QT_DIR found in environment: " + fq(qt_install_dir));
 
 
 	QString rHome = qgetenv("R_HOME");
-	addInfo(output, "R_HOME: " + rHome);
+	addInfo(output, "R_HOME: " + fq(rHome));
 
 	//QString qmlRFolder = rHome + "/library/jaspQmlR";
 	//QCoreApplication::addLibraryPath(qmlRFolder + "/plugins");
@@ -339,17 +345,19 @@ void init(QJsonObject& output)
 }
 
 // [[Rcpp::export]]
-String loadQmlFileAndCheckOptions(String qmlFile, String options, String version)
+String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version)
 {
 	bool hasError = false;
-	QJsonObject jsonResult;
+	Json::Value jsonResult;
 	init(jsonResult);
 
 	qtQmlEngine->clearComponentCache();
 
-	std::string qmlFileStr = qmlFile.get_cstring(),
-				optionsStr = options.get_cstring(),
-				versionStr = version.get_cstring();
+	std::string qmlFileStr		= qmlFile.get_cstring(),
+				optionsStr		= options.get_cstring(),
+				versionStr		= version.get_cstring(),
+				analysisNameStr	= analysisName.get_cstring(),
+				moduleNameStr	= moduleName.get_cstring();
 
 	QFileInfo	qmlFileInfo(QString::fromStdString(qmlFileStr));
 	if (!qmlFileInfo.exists())
@@ -369,7 +377,7 @@ String loadQmlFileAndCheckOptions(String qmlFile, String options, String version
 		for(const auto & error : qmlComp.errors())
 		{
 			hasError = true;
-			addError(jsonResult, "Error when creating component at " + QString::number(error.line()) + "," + QString::number(error.column()) + ": " + error.description());
+			addError(jsonResult, "Error when creating component at " + fq(QString::number(error.line())) + "," + fq(QString::number(error.column())) + ": " + fq(error.description()));
 		}
 
 		if (!item)
@@ -379,27 +387,41 @@ String loadQmlFileAndCheckOptions(String qmlFile, String options, String version
 		}
 	}
 
-	if (!hasError)
-	{
-		application->processEvents();
+	if (hasError)
+		return jsonResult.toStyledString();
 
-		QString returnedValue;
+	application->processEvents();
 
-		QMetaObject::invokeMethod(item, "parseOptions",
-			Q_RETURN_ARG(QString, returnedValue),
-			Q_ARG(QString, QString::fromStdString(optionsStr)));
+	QString returnedValue;
 
-		QJsonDocument docReturned = QJsonDocument::fromJson(returnedValue.toUtf8());
+	QMetaObject::invokeMethod(item, "parseOptions",
+		Q_RETURN_ARG(QString, returnedValue),
+		Q_ARG(QString, tq(optionsStr)));
 
-		jsonResult = docReturned.object();
-	}
+	Json::Reader	jsonReader;
+	Json::Value		jsonOptions;
+	jsonReader.parse(fq(returnedValue), jsonOptions);
 
-	QJsonDocument docResult(jsonResult);
-	std::string srtrResult = docResult.toJson().toStdString();
-	return srtrResult;
+	extraEncodings->setCurrentNamesFromOptionsMeta(jsonOptions);
+
+	jaspEngine->updateOptionsAccordingToMeta(jsonOptions);
+
+	ColumnEncoder::colsPlusTypes analysisColsTypes = ColumnEncoder::encodeColumnNamesinOptions(jsonOptions, preloadData);
+
+	std::string strOptions = jsonOptions.toStyledString();
+
+	static int analysisRevision = 0;
+	analysisRevision++;
+
+	// This does not call the analysis, but sets some configuration settings
+	rbridge_runModuleCall(analysisNameStr, analysisNameStr, moduleNameStr, "",
+												   strOptions, "", 1, analysisRevision,
+												   false, analysisColsTypes, true, false);
+
+	return strOptions;
 }
 
-bool _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
+bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
 {
 	bool hasError = false;
 	QQuickItem* item = nullptr;
@@ -408,7 +430,7 @@ bool _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const 
 	if (!qmlFile.exists())
 	{
 		hasError = true;
-		addError(jsonResult, "QML File NOT found: " + qmlFile.absoluteFilePath());
+		addError(jsonResult, "QML File NOT found: " + fq(qmlFile.absoluteFilePath()));
 	}
 	else
 	{
@@ -420,7 +442,7 @@ bool _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const 
 		for(const auto & error : qmlComp.errors())
 		{
 			hasError = true;
-			addError(jsonResult, "Error when creating component at " + QString::number(error.line()) + "," + QString::number(error.column()) + ": " + error.description());
+			addError(jsonResult, "Error when creating component at " + fq(QString::number(error.line())) + "," + fq(QString::number(error.column())) + ": " + fq(error.description()));
 		}
 
 		if (!item)
@@ -458,7 +480,7 @@ bool _generateWrapper(QJsonObject& jsonResult, const QString& modulePath, const 
 String generateModuleWrappers(String modulePath)
 {
 	bool hasError = false;
-	QJsonObject jsonResult;
+	Json::Value jsonResult;
 	init(jsonResult);
 
 	qtQmlEngine->clearComponentCache();
@@ -471,7 +493,7 @@ String generateModuleWrappers(String modulePath)
 	if (!moduleDir.exists())
 	{
 		hasError = true;
-		addError(jsonResult, "Module path not found: " + modulePathQ);
+		addError(jsonResult, "Module path not found: " + fq(modulePathQ));
 	}
 
 	QVector<std::pair<QString, QString> > analyses;
@@ -481,7 +503,7 @@ String generateModuleWrappers(String modulePath)
 		if (!qmlDescriptionFile.exists())
 		{
 			hasError = true;
-			addError(jsonResult, "Description.qml file not found in " + modulePathQ);
+			addError(jsonResult, "Description.qml file not found in " + fq(modulePathQ));
 		}
 		else
 		{
@@ -524,7 +546,7 @@ String generateModuleWrappers(String modulePath)
 	}
 
 	if (hasError)
-		return fq(jsonResult["error"].toString());
+		return jsonResult["error"].toStyledString();
 	else
 		return fq(result);
 }
@@ -534,7 +556,7 @@ String generateModuleWrappers(String modulePath)
 String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName)
 {
 	bool hasError = false;
-	QJsonObject jsonResult;
+	Json::Value jsonResult;
 	init(jsonResult);
 
 	qtQmlEngine->clearComponentCache();
@@ -547,7 +569,7 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	QDir moduleDir(modulePathQ);
 
 	if (!moduleDir.exists())
-		addError(jsonResult, "Module path not found: " + modulePathQ);
+		addError(jsonResult, "Module path not found: " + fq(modulePathQ));
 
 	if (!hasError)
 		hasError = !_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ);
@@ -555,7 +577,7 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	if (!hasError)
 		return "Wrapper generated for analysis " + fq(analysisNameQ);
 	else
-		return fq(jsonResult["error"].toString());
+		return jsonResult["error"].toStyledString();
 }
 
 

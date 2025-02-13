@@ -9,8 +9,8 @@ loadDataSet <- function(data) {
     invisible(.Call(`_jaspQmlR_loadDataSet`, data))
 }
 
-loadQmlFileAndCheckOptions <- function(qmlFile, options, version) {
-    .Call(`_jaspQmlR_loadQmlFileAndCheckOptions`, qmlFile, options, version)
+loadQmlFileAndCheckOptions <- function(moduleName, analysisName, qmlFile, options, version) {
+    .Call(`_jaspQmlR_loadQmlFileAndCheckOptions`, moduleName, analysisName, qmlFile, options, version)
 }
 
 generateModuleWrappers <- function(modulePath) {

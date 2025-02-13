@@ -49,7 +49,8 @@ PKG_LIBS=-g\ -arch\ arm64
 #PKG_LIBS=${PKG_LIBS}\ -isysroot\ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk
 PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
 PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
-PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
+#PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
+PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/lib/libR.dylib"
 PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl"
 
 PKG_CXXFLAGS=-DQT_DIR="${QT_DIR}"\ -DQT_STATICPLUGIN
@@ -71,7 +72,7 @@ PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/EngineLib/libEngineLib.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-Interface.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-InterfaceNoRInside.a
 
 if [ "${USE_QML_DEBUG}" ]; then
 
