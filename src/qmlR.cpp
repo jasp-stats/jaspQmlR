@@ -35,16 +35,16 @@ Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
 #define STRINGIZE(x) _STRINGIZE(x)
 
 
-static bool								initialized					= false;
-static QString							qt_install_dir;
-static QGuiApplication			*		application					= nullptr;
-static QQmlApplicationEngine	*		qtQmlEngine					= nullptr;
-static EngineBase				*		jaspEngine					= nullptr;
-static ColumnEncoder			*		extraEncodings				= nullptr;
+static bool								gl_initialized					= false;
+static QString							gl_qt_install_dir;
+static QGuiApplication			*		gl_application					= nullptr;
+static QQmlApplicationEngine	*		gl_qmlEngine					= nullptr;
+static EngineBase				*		gl_jaspEngine					= nullptr;
+static ColumnEncoder			*		gl_extraEncodings				= nullptr;
 
-static bool								dbInMemory					= true;
-static bool								preloadData					= true;
-static std::string						resultFont					=
+static bool								gl_param_dbInMemory				= true;
+static bool								gl_param_preloadData			= true;
+static std::string						gl_param_resultFont				=
 #ifdef WIN32
 	"Arial,sans-serif,freesans,\"Segoe UI\"";
 #elif __APPLE__
@@ -56,24 +56,23 @@ static std::string						resultFont					=
 
 
 // [[Rcpp::export]]
-bool setParameter(String name, String value)
+bool setParameter(String name, SEXP value)
 {
-	std::string nameStr		= name.get_cstring(),
-				valueStr	= value.get_cstring();
+	std::string nameStr		= name.get_cstring();
 
-	if (nameStr == "resultFont")
+	if (nameStr == "resultFont" && Rcpp::is<String>(value))
 	{
-		resultFont = valueStr;
+		gl_param_resultFont = Rcpp::as<std::string>(value);
 		return true;
 	}
-	else if (nameStr == "dbInMemory")
+	else if (nameStr == "dbInMemory" && Rcpp::is<bool>(value))
 	{
-		dbInMemory = (valueStr == "true" || valueStr == "TRUE" || valueStr == "1");
+		gl_param_dbInMemory = Rcpp::as<bool>(value);
 		return true;
 	}
-	else if (nameStr == "preloadData")
+	else if (nameStr == "preloadData" && Rcpp::is<bool>(value))
 	{
-		preloadData = (valueStr == "true" || valueStr == "TRUE" || valueStr == "1");
+		gl_param_preloadData = Rcpp::as<bool>(value);
 		return true;
 	}
 
@@ -123,7 +122,7 @@ std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj)
 void loadDataSet(Rcpp::List data)
 {
 
-	DataSetProvider* provider = DataSetProvider::getProvider(dbInMemory);
+	DataSetProvider* provider = DataSetProvider::getProvider(gl_param_dbInMemory);
 
 	Rcpp::RObject namesListRObject = data.names();
 	Rcpp::CharacterVector namesList;
@@ -169,6 +168,7 @@ void loadDataSet(Rcpp::List data)
 		provider->dataSet()->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, 10, true);
 	}
 
+	ColumnEncoder::columnEncoder()->setCurrentNames(provider->dataSet()->getColumnNames(), true);
 }
 
 
@@ -263,25 +263,25 @@ bool DummyPollMessagesFunctionForJaspResults() { return false; }
 
 void init(Json::Value& output)
 {
-	if (initialized) return;
-	initialized = true;
+	if (gl_initialized) return;
+	gl_initialized = true;
 
 	TempFiles::init(ProcessInfo::currentPID());
 
-	DataSetProvider::getProvider(dbInMemory, false); // Create the DataSetProvider in case the loadDataSet was not already called
+	DataSetProvider::getProvider(gl_param_dbInMemory, false); // Create the DataSetProvider in case the loadDataSet was not already called
 
-	jaspEngine = new EngineBase(ProcessInfo::currentPID(), dbInMemory);
-	extraEncodings = new ColumnEncoder("JaspExtraOptions_");
+	gl_jaspEngine = new EngineBase(ProcessInfo::currentPID(), gl_param_dbInMemory);
+	gl_extraEncodings = new ColumnEncoder("JaspExtraOptions_");
 
-	rbridge_init(jaspEngine, DummySendFunctionForJaspresults, DummyPollMessagesFunctionForJaspResults, extraEncodings, resultFont.c_str());
+	rbridge_init(gl_jaspEngine, DummySendFunctionForJaspresults, DummyPollMessagesFunctionForJaspResults, gl_extraEncodings, gl_param_resultFont.c_str());
 
 
-	qt_install_dir = qgetenv("QT_DIR");
+	gl_qt_install_dir = qgetenv("QT_DIR");
 #ifdef QT_DIR
-	if (qt_install_dir.isEmpty())
-		qt_install_dir = STRINGIZE(QT_DIR);
+	if (gl_qt_install_dir.isEmpty())
+		gl_qt_install_dir = STRINGIZE(QT_DIR);
 #endif
-	addInfo(output, "QT_DIR found in environment: " + fq(qt_install_dir));
+	addInfo(output, "QT_DIR found in environment: " + fq(gl_qt_install_dir));
 
 
 	QString rHome = qgetenv("R_HOME");
@@ -318,24 +318,24 @@ void init(Json::Value& output)
 	// qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", qmlRFolder.toStdString() + "/plugins");
 
 
-	application = new QGuiApplication(argc, argvs);
-	qtQmlEngine = new QQmlApplicationEngine();
+	gl_application = new QGuiApplication(argc, argvs);
+	gl_qmlEngine = new QQmlApplicationEngine();
 
-	addContextObjects(qtQmlEngine);
+	addContextObjects(gl_qmlEngine);
 
-	qtQmlEngine->addImportPath(":/jasp-stats.org/imports");
-	qtQmlEngine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
+	gl_qmlEngine->addImportPath(":/jasp-stats.org/imports");
+	gl_qmlEngine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
 	QQuickStyle::setStyle("Basic"); // This removes warnings "The current style does not support customization of this control"
 
-	//new RDataSetReader(qtQmlEngine);
+	//new RDataSetReader(gl_qmlEngine);
 
-	/*output.push_back("Base URL: " + qtQmlEngine->baseUrl().toDisplayString().toStdString());
+	/*output.push_back("Base URL: " + gl_qmlEngine->baseUrl().toDisplayString().toStdString());
 	output.push_back("Current Path: " + std::filesystem::current_path().string());
 
-	QStringList paths = qtQmlEngine->importPathList();
+	QStringList paths = gl_qmlEngine->importPathList();
 	for (QString path : paths)
 		output.push_back("Import path: " + path.toStdString());
-	QStringList pluginPaths = qtQmlEngine->pluginPathList();
+	QStringList pluginPaths = gl_qmlEngine->pluginPathList();
 	for (QString path : pluginPaths)
 		output.push_back("Plugin path: " + path.toStdString());
 
@@ -351,7 +351,7 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 	Json::Value jsonResult;
 	init(jsonResult);
 
-	qtQmlEngine->clearComponentCache();
+	gl_qmlEngine->clearComponentCache();
 
 	std::string qmlFileStr		= qmlFile.get_cstring(),
 				optionsStr		= options.get_cstring(),
@@ -370,7 +370,7 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 	if (!hasError)
 	{
 		QUrl urlFile = QUrl::fromLocalFile(qmlFileInfo.absoluteFilePath());
-		QQmlComponent	qmlComp( qtQmlEngine, urlFile, QQmlComponent::PreferSynchronous);
+		QQmlComponent	qmlComp( gl_qmlEngine, urlFile, QQmlComponent::PreferSynchronous);
 
 		item = qobject_cast<QQuickItem*>(qmlComp.create());
 
@@ -390,7 +390,7 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 	if (hasError)
 		return jsonResult.toStyledString();
 
-	application->processEvents();
+	gl_application->processEvents();
 
 	QString returnedValue;
 
@@ -399,26 +399,24 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 		Q_ARG(QString, tq(optionsStr)));
 
 	Json::Reader	jsonReader;
-	Json::Value		jsonOptions;
-	jsonReader.parse(fq(returnedValue), jsonOptions);
+	jsonReader.parse(fq(returnedValue), jsonResult);
+	Json::Value		jsonOptions = jsonResult["options"];
 
-	extraEncodings->setCurrentNamesFromOptionsMeta(jsonOptions);
-
-	jaspEngine->updateOptionsAccordingToMeta(jsonOptions);
-
-	ColumnEncoder::colsPlusTypes analysisColsTypes = ColumnEncoder::encodeColumnNamesinOptions(jsonOptions, preloadData);
-
-	std::string strOptions = jsonOptions.toStyledString();
+	gl_extraEncodings->setCurrentNamesFromOptionsMeta(jsonOptions);
+	gl_jaspEngine->updateOptionsAccordingToMeta(jsonOptions);
+	ColumnEncoder::colsPlusTypes analysisColsTypes = ColumnEncoder::encodeColumnNamesinOptions(jsonOptions, gl_param_preloadData);
 
 	static int analysisRevision = 0;
 	analysisRevision++;
 
 	// This does not call the analysis, but sets some configuration settings
 	rbridge_runModuleCall(analysisNameStr, analysisNameStr, moduleNameStr, "",
-												   strOptions, "", 1, analysisRevision,
-												   false, analysisColsTypes, true, false);
+												   jsonOptions.toStyledString(), "", 1, analysisRevision,
+												   false, analysisColsTypes, gl_param_preloadData, false);
 
-	return strOptions;
+	jsonResult["options"] = jsonOptions;
+
+	return jsonResult.toStyledString();
 }
 
 bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
@@ -435,7 +433,7 @@ bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const 
 	else
 	{
 		QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
-		QQmlComponent	qmlComp( qtQmlEngine, urlFile, QQmlComponent::PreferSynchronous);
+		QQmlComponent	qmlComp( gl_qmlEngine, urlFile, QQmlComponent::PreferSynchronous);
 
 		item = qobject_cast<QQuickItem*>(qmlComp.create());
 
@@ -457,7 +455,7 @@ bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const 
 		QString returnedValue;
 		QString moduleName = QDir(modulePath).dirName();
 
-		application->processEvents();
+		gl_application->processEvents();
 
 		QMetaObject::invokeMethod(item, "generateWrapper",
 			Q_RETURN_ARG(QString, returnedValue),
@@ -483,7 +481,7 @@ String generateModuleWrappers(String modulePath)
 	Json::Value jsonResult;
 	init(jsonResult);
 
-	qtQmlEngine->clearComponentCache();
+	gl_qmlEngine->clearComponentCache();
 
 	QString modulePathQ		= tq(modulePath.get_cstring()),
 			moduleNameQ;
@@ -559,7 +557,7 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	Json::Value jsonResult;
 	init(jsonResult);
 
-	qtQmlEngine->clearComponentCache();
+	gl_qmlEngine->clearComponentCache();
 
 	QString qmlFileNameQ	= tq(qmlFileName.get_cstring()),
 			modulePathQ		= tq(modulePath.get_cstring()),

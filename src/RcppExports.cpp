@@ -11,13 +11,13 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // setParameter
-bool setParameter(String name, String value);
+bool setParameter(String name, SEXP value);
 RcppExport SEXP _jaspQmlR_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< String >::type name(nameSEXP);
-    Rcpp::traits::input_parameter< String >::type value(valueSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type value(valueSEXP);
     rcpp_result_gen = Rcpp::wrap(setParameter(name, value));
     return rcpp_result_gen;
 END_RCPP
