@@ -74,53 +74,22 @@ PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/EngineLib/libEngineLib.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-InterfaceNoRInside.a
 
-if [ "${USE_QML_DEBUG}" ]; then
+	PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
+	PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
 
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Core_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Gui_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Qml_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6QmlCore_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6QmlModels_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Quick_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6QuickControls2_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6Network_debug.dylib
-        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/libQt6QmlWorkerScript_debug.dylib
-
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtCore
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -iframework\ ${QT_DIR}/lib
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/mkspecs/macx-clang
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtGui
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtQml
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtQuick
-
-else
-
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuick.framework/Versions/A/QtQuick
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQmlModels.framework/Versions/A/QtQmlModels
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQml.framework/Versions/A/QtQml
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtNetwork.framework/Versions/A/QtNetwork
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtOpenGL.framework/Versions/A/QtOpenGL
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtGui.framework/Versions/A/QtGui
-#        PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtCore.framework/Versions/A/QtCore
-
-		PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
-		PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
-
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtCore.framework/Headers
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -iframework\ ${QT_DIR}/lib
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/mkspecs/macx-clang
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQml.framework/Headers
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtQmlIntegration
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtCore.framework/Headers
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -iframework\ ${QT_DIR}/lib
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/mkspecs/macx-clang
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQml.framework/Headers
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtQmlIntegration
 #        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtNetwork.framework/Headers
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQuick.framework/Headers
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQuickControls2.framework/Headers
-        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtGui.framework/Headers
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQuick.framework/Headers
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQuickControls2.framework/Headers
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtWidgets.framework/Headers
+	PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtGui.framework/Headers
 #        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQmlModels.framework/Headers
-#        PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtOpenGL.framework/Headers
 
-fi
 
 PKG_LIBS=${PKG_LIBS}\ -framework\ IOKit\ -framework\ DiskArbitration\ -Xlinker\ -framework\ -Xlinker\ OpenGL
 PKG_LIBS=${PKG_LIBS}\ -Xlinker\ -framework\ -Xlinker\ AGL\ -framework\ AppKit\ -framework\ ImageIO\ -framework\ Metal

@@ -1,24 +1,37 @@
+//
+// Copyright (C) 2013-2018 University of Amsterdam
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public
+// License along with this program.  If not, see
+// <http://www.gnu.org/licenses/>.
+//
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
-#include <iostream>
 #include <QQmlContext>
-#include <QThread>
 #include <QFileInfo>
-#include <QAbstractEventDispatcher>
 #include <QQmlComponent>
 #include <QQuickItem>
 #include <QDir>
-#include <filesystem>
 #include <QQuickStyle>
+#include <QThread>
 #include "qutils.h"
 #include "preferencesmodelbase.h"
 #include "jasptheme.h"
 #include "controls/jaspcontrol.h"
-#include <qdebug.h>
 #include "knownissues.h"
 #include "qmlutils.h"
 #include "columnutils.h"
@@ -44,6 +57,8 @@ static ColumnEncoder			*		gl_extraEncodings				= nullptr;
 
 static bool								gl_param_dbInMemory				= true;
 static bool								gl_param_preloadData			= true;
+static bool								gl_param_orderLabelsByValue		= true;
+static int								gl_param_threshold				= 10;
 static std::string						gl_param_resultFont				=
 #ifdef WIN32
 	"Arial,sans-serif,freesans,\"Segoe UI\"";
@@ -73,6 +88,16 @@ bool setParameter(String name, SEXP value)
 	else if (nameStr == "preloadData" && Rcpp::is<bool>(value))
 	{
 		gl_param_preloadData = Rcpp::as<bool>(value);
+		return true;
+	}
+	else if (nameStr == "threshold" && Rcpp::is<int>(value))
+	{
+		gl_param_threshold = Rcpp::as<int>(value);
+		return true;
+	}
+	else if (nameStr == "orderLabelsByValue" && Rcpp::is<bool>(value))
+	{
+		gl_param_orderLabelsByValue = Rcpp::as<bool>(value);
 		return true;
 	}
 
@@ -118,58 +143,6 @@ std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj)
 	return vecresult;
 }
 
-// [[Rcpp::export]]
-void loadDataSet(Rcpp::List data)
-{
-
-	DataSetProvider* provider = DataSetProvider::getProvider(gl_param_dbInMemory);
-
-	Rcpp::RObject namesListRObject = data.names();
-	Rcpp::CharacterVector namesList;
-
-	if (!namesListRObject.isNULL())
-		namesList = namesListRObject;
-
-	std::string hello;
-
-
-	provider->dataSet()->setColumnCount(data.size());
-
-	int maxRows = 0;
-
-	for (int colNr = 0; colNr < data.size(); colNr++)
-	{
-		std::string name(namesList[colNr]);
-		std::vector<std::string> column;
-
-		if(name == "")
-			name = "column_" + std::to_string(colNr);
-
-		Rcpp::RObject colObj = (Rcpp::RObject)data[colNr];
-
-		// TODO: This could be made more efficient: if we have integers or doubles, initialize the column in the dataset directly with these integers and doubles
-		// Now we transform them into strings, and inside initColumnWithStrings re-transform them into integers or doubles.
-		if(Rcpp::is<Rcpp::NumericVector>(colObj))			column = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
-		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		column = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
-		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		column = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
-		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	column = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
-		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
-		else
-		{
-			// TODO print an error
-			column = std::vector<std::string>(maxRows);
-		}
-
-		if (column.size() > maxRows)
-			maxRows = column.size();
-		if (provider->dataSet()->rowCount() < maxRows)
-			provider->dataSet()->setRowCount(maxRows);
-
-		provider->dataSet()->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, 10, true);
-	}
-
-	ColumnEncoder::columnEncoder()->setCurrentNames(provider->dataSet()->getColumnNames(), true);
-}
 
 
 void printFolder(StringVector& output, const QDir& dir, int depth = 0)
@@ -287,10 +260,6 @@ void init(Json::Value& output)
 	QString rHome = qgetenv("R_HOME");
 	addInfo(output, "R_HOME: " + fq(rHome));
 
-	//QString qmlRFolder = rHome + "/library/jaspQmlR";
-	//QCoreApplication::addLibraryPath(qmlRFolder + "/plugins");
-
-
 	int					dummyArgc = 1;
 	char				dummyArgv[2];
 	dummyArgv[0] = '?';
@@ -314,9 +283,6 @@ void init(Json::Value& output)
 
 
 	qputenv("QT_QPA_PLATFORM", "minimal");
-	// Keep this in case
-	// qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", qmlRFolder.toStdString() + "/plugins");
-
 
 	gl_application = new QGuiApplication(argc, argvs);
 	gl_qmlEngine = new QQmlApplicationEngine();
@@ -327,22 +293,62 @@ void init(Json::Value& output)
 	gl_qmlEngine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
 	QQuickStyle::setStyle("Basic"); // This removes warnings "The current style does not support customization of this control"
 
-	//new RDataSetReader(gl_qmlEngine);
-
-	/*output.push_back("Base URL: " + gl_qmlEngine->baseUrl().toDisplayString().toStdString());
-	output.push_back("Current Path: " + std::filesystem::current_path().string());
-
-	QStringList paths = gl_qmlEngine->importPathList();
-	for (QString path : paths)
-		output.push_back("Import path: " + path.toStdString());
-	QStringList pluginPaths = gl_qmlEngine->pluginPathList();
-	for (QString path : pluginPaths)
-		output.push_back("Plugin path: " + path.toStdString());
-
-	QDir dir(":/");
-
-	printFolder(output, dir); */
 }
+
+// [[Rcpp::export]]
+void loadDataSet(Rcpp::List data)
+{
+	Json::Value output;
+	init(output);
+	DataSetProvider* provider = DataSetProvider::getProvider(gl_param_dbInMemory);
+
+	Rcpp::RObject namesListRObject = data.names();
+	Rcpp::CharacterVector namesList;
+
+	if (!namesListRObject.isNULL())
+		namesList = namesListRObject;
+
+	std::string hello;
+
+
+	provider->dataSet()->setColumnCount(data.size());
+
+	int maxRows = 0;
+
+	for (int colNr = 0; colNr < data.size(); colNr++)
+	{
+		std::string name(namesList[colNr]);
+		std::vector<std::string> column;
+
+		if(name == "")
+			name = "column_" + std::to_string(colNr);
+
+		Rcpp::RObject colObj = (Rcpp::RObject)data[colNr];
+
+		// TODO: This could be made more efficient: if we have integers or doubles, initialize the column in the dataset directly with these integers and doubles
+		// Now we transform them into strings, and inside initColumnWithStrings re-transform them into integers or doubles.
+		if(Rcpp::is<Rcpp::NumericVector>(colObj))			column = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
+		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		column = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
+		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		column = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
+		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	column = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
+		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
+		else
+		{
+			// TODO print an error
+			column = std::vector<std::string>(maxRows);
+		}
+
+		if (column.size() > maxRows)
+			maxRows = column.size();
+		if (provider->dataSet()->rowCount() < maxRows)
+			provider->dataSet()->setRowCount(maxRows);
+
+		provider->dataSet()->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, gl_param_threshold, gl_param_orderLabelsByValue);
+	}
+
+	ColumnEncoder::columnEncoder()->setCurrentNames(provider->dataSet()->getColumnNames(), true);
+}
+
 
 // [[Rcpp::export]]
 String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version)
@@ -351,7 +357,8 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 	Json::Value jsonResult;
 	init(jsonResult);
 
-	gl_qmlEngine->clearComponentCache();
+//	gl_qmlEngine->clearSingletons();
+//	gl_qmlEngine->clearComponentCache();
 
 	std::string qmlFileStr		= qmlFile.get_cstring(),
 				optionsStr		= options.get_cstring(),
@@ -410,8 +417,8 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 	analysisRevision++;
 
 	// This does not call the analysis, but sets some configuration settings
-	rbridge_runModuleCall(analysisNameStr, analysisNameStr, moduleNameStr, "",
-												   jsonOptions.toStyledString(), "", 1, analysisRevision,
+	rbridge_runModuleCall(analysisNameStr, analysisNameStr, moduleNameStr, "{}",
+												   jsonOptions.toStyledString(), "{}", 1, analysisRevision,
 												   false, analysisColsTypes, gl_param_preloadData, false);
 
 	jsonResult["options"] = jsonOptions;
@@ -507,6 +514,9 @@ String generateModuleWrappers(String modulePath)
 		{
 			QString fileContent;
 			QStringList analysesPart;
+			// TODO: The Description.qml cannot be loaded by the QML Engine, since it does not have access to the JASP.Module
+			// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly.
+			// For the time being, just try to parse the Description.qml to detect the Analyses and their properties.
 			if (qmlDescriptionFile.open(QIODevice::ReadOnly))
 			{
 				fileContent = qmlDescriptionFile.readAll();
