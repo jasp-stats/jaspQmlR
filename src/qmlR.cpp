@@ -231,9 +231,6 @@ void addContextObjects(QQmlApplicationEngine* engine)
 
 }
 
-void DummySendFunctionForJaspresults(const char * msg) {}
-bool DummyPollMessagesFunctionForJaspResults() { return false; }
-
 void init(Json::Value& output)
 {
 	if (gl_initialized) return;
@@ -246,8 +243,9 @@ void init(Json::Value& output)
 	gl_jaspEngine = new EngineBase(ProcessInfo::currentPID(), gl_param_dbInMemory);
 	gl_extraEncodings = new ColumnEncoder("JaspExtraOptions_");
 
-	rbridge_init(gl_jaspEngine, DummySendFunctionForJaspresults, DummyPollMessagesFunctionForJaspResults, gl_extraEncodings, gl_param_resultFont.c_str());
+	rbridge_init(gl_jaspEngine, [](const char *msg){ }, [](){ return false; }, gl_extraEncodings, gl_param_resultFont.c_str());
 
+	jaspRCPP_init_jaspBase(false);
 
 	gl_qt_install_dir = qgetenv("QT_DIR");
 #ifdef QT_DIR
@@ -422,6 +420,7 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 												   false, analysisColsTypes, gl_param_preloadData, false);
 
 	jsonResult["options"] = jsonOptions;
+	jsonResult["preloadData"] = gl_param_preloadData;
 
 	return jsonResult.toStyledString();
 }
