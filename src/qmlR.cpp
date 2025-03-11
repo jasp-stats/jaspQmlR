@@ -349,7 +349,7 @@ void loadDataSet(Rcpp::List data)
 
 
 // [[Rcpp::export]]
-String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version)
+String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
 {
 	bool hasError = false;
 	Json::Value jsonResult;
@@ -409,7 +409,7 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 
 	gl_extraEncodings->setCurrentNamesFromOptionsMeta(jsonOptions);
 	gl_jaspEngine->updateOptionsAccordingToMeta(jsonOptions);
-	ColumnEncoder::colsPlusTypes analysisColsTypes = ColumnEncoder::encodeColumnNamesinOptions(jsonOptions, gl_param_preloadData);
+	ColumnEncoder::colsPlusTypes analysisColsTypes = ColumnEncoder::encodeColumnNamesinOptions(jsonOptions, preloadData);
 
 	static int analysisRevision = 0;
 	analysisRevision++;
@@ -417,15 +417,14 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 	// This does not call the analysis, but sets some configuration settings
 	rbridge_runModuleCall(analysisNameStr, analysisNameStr, moduleNameStr, "{}",
 												   jsonOptions.toStyledString(), "{}", 1, analysisRevision,
-												   false, analysisColsTypes, gl_param_preloadData, false);
+												   false, analysisColsTypes, preloadData, false);
 
 	jsonResult["options"] = jsonOptions;
-	jsonResult["preloadData"] = gl_param_preloadData;
 
 	return jsonResult.toStyledString();
 }
 
-bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName)
+bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName, bool preloadData)
 {
 	bool hasError = false;
 	QQuickItem* item = nullptr;
@@ -467,7 +466,8 @@ bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const 
 			Q_RETURN_ARG(QString, returnedValue),
 			Q_ARG(QString, moduleName),
 			Q_ARG(QString, analysisName),
-			Q_ARG(QString, qmlFileName)
+			Q_ARG(QString, qmlFileName),
+			Q_ARG(bool, preloadData)
 		);
 
 		QFile file(modulePath + "/R/" + analysisName + "Wrapper.R");
@@ -549,7 +549,7 @@ String generateModuleWrappers(String modulePath)
 	for (auto analysis : analyses)
 	{
 		result.append("Analysis " + analysis.first + " with qml file " + analysis.second + "\n");
-		hasError = !_generateWrapper(jsonResult, modulePathQ, analysis.first, analysis.second);
+		hasError = !_generateWrapper(jsonResult, modulePathQ, analysis.first, analysis.second, gl_param_preloadData);
 	}
 
 	if (hasError)
@@ -560,7 +560,7 @@ String generateModuleWrappers(String modulePath)
 
 
 // [[Rcpp::export]]
-String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName)
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData)
 {
 	bool hasError = false;
 	Json::Value jsonResult;
@@ -579,7 +579,9 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 		addError(jsonResult, "Module path not found: " + fq(modulePathQ));
 
 	if (!hasError)
-		hasError = !_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ);
+		// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly, and know directly
+		// what is the name of the qml file and if it uses preloadData
+		hasError = !_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ, preloadData);
 
 	if (!hasError)
 		return "Wrapper generated for analysis " + fq(analysisNameQ);

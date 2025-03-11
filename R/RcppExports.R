@@ -9,15 +9,15 @@ loadDataSet <- function(data) {
     invisible(.Call(`_jaspQmlR_loadDataSet`, data))
 }
 
-loadQmlFileAndCheckOptions <- function(moduleName, analysisName, qmlFile, options, version) {
-    .Call(`_jaspQmlR_loadQmlFileAndCheckOptions`, moduleName, analysisName, qmlFile, options, version)
+loadQmlFileAndCheckOptions <- function(moduleName, analysisName, qmlFile, options, version, preloadData) {
+    .Call(`_jaspQmlR_loadQmlFileAndCheckOptions`, moduleName, analysisName, qmlFile, options, version, preloadData)
 }
 
 generateModuleWrappers <- function(modulePath) {
     .Call(`_jaspQmlR_generateModuleWrappers`, modulePath)
 }
 
-generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName) {
-    .Call(`_jaspQmlR_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName)
+generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName, preloadData) {
+    .Call(`_jaspQmlR_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName, preloadData)
 }
 

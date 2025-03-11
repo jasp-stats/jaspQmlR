@@ -33,8 +33,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // loadQmlFileAndCheckOptions
-String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version);
-RcppExport SEXP _jaspQmlR_loadQmlFileAndCheckOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP) {
+String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
+RcppExport SEXP _jaspQmlR_loadQmlFileAndCheckOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -43,7 +43,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< String >::type qmlFile(qmlFileSEXP);
     Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
     Rcpp::traits::input_parameter< String >::type version(versionSEXP);
-    rcpp_result_gen = Rcpp::wrap(loadQmlFileAndCheckOptions(moduleName, analysisName, qmlFile, options, version));
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadQmlFileAndCheckOptions(moduleName, analysisName, qmlFile, options, version, preloadData));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -59,15 +60,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // generateAnalysisWrapper
-String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName);
-RcppExport SEXP _jaspQmlR_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP) {
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData);
+RcppExport SEXP _jaspQmlR_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
     Rcpp::traits::input_parameter< String >::type qmlFileName(qmlFileNameSEXP);
     Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
-    rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName));
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName, preloadData));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -75,9 +77,9 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_jaspQmlR_setParameter", (DL_FUNC) &_jaspQmlR_setParameter, 2},
     {"_jaspQmlR_loadDataSet", (DL_FUNC) &_jaspQmlR_loadDataSet, 1},
-    {"_jaspQmlR_loadQmlFileAndCheckOptions", (DL_FUNC) &_jaspQmlR_loadQmlFileAndCheckOptions, 5},
+    {"_jaspQmlR_loadQmlFileAndCheckOptions", (DL_FUNC) &_jaspQmlR_loadQmlFileAndCheckOptions, 6},
     {"_jaspQmlR_generateModuleWrappers", (DL_FUNC) &_jaspQmlR_generateModuleWrappers, 1},
-    {"_jaspQmlR_generateAnalysisWrapper", (DL_FUNC) &_jaspQmlR_generateAnalysisWrapper, 3},
+    {"_jaspQmlR_generateAnalysisWrapper", (DL_FUNC) &_jaspQmlR_generateAnalysisWrapper, 4},
     {NULL, NULL, 0}
 };
 
