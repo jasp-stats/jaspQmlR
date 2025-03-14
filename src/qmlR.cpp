@@ -19,7 +19,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QFileInfo>
@@ -28,7 +27,6 @@ using namespace Rcpp;
 #include <QDir>
 #include <QQuickStyle>
 #include <QThread>
-#include "qutils.h"
 #include "preferencesmodelbase.h"
 #include "jasptheme.h"
 #include "controls/jaspcontrol.h"
@@ -42,6 +40,7 @@ using namespace Rcpp;
 #include "tempfiles.h"
 #include "analysisbase.h"
 #include "analysisform.h"
+#include "dataframeimporter.h"
 
 #include <QtPlugin>
 Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
@@ -128,45 +127,6 @@ bool setParameter(String name, SEXP value)
 	return false;
 }
 
-
-template<int RTYPE>  inline std::string RVectorEntry_to_String(Rcpp::Vector<RTYPE> obj, int row) { return ""; }
-
-template<> inline std::string RVectorEntry_to_String<INTSXP>(Rcpp::Vector<INTSXP> obj, int row)
-{
-	return obj[row] == NA_INTEGER	? "" : std::to_string((int)(obj[row]));
-}
-
-template<> inline std::string RVectorEntry_to_String<LGLSXP>(Rcpp::Vector<LGLSXP> obj, int row)
-{
-	return obj[row] == NA_LOGICAL	? "" : ((bool)(obj[row]) ? "1" : "0");
-}
-
-template<> inline std::string RVectorEntry_to_String<STRSXP>(Rcpp::Vector<STRSXP> obj, int row)
-{
-	return obj[row] == NA_STRING	? "" : std::string(obj[row]);
-}
-
-template<> inline std::string RVectorEntry_to_String<REALSXP>(Rcpp::Vector<REALSXP> obj, int row)
-{
-	double val = static_cast<double>(obj[row]);
-	return	R_IsNA(val) ? "" :
-					  R_IsNaN(val) ? "NaN" :
-										  val == std::numeric_limits<double>::infinity() ? "\u221E" :
-												val == -1 * std::numeric_limits<double>::infinity() ? "-\u221E"  :
-											ColumnUtils::doubleToString((double)(obj[row]));
-}
-
-
-template<int RTYPE>
-std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj)
-{
-	std::vector<std::string> vecresult;
-	for(int row=0; row<obj.size(); row++)
-		vecresult.push_back(RVectorEntry_to_String(obj, row));
-
-	return vecresult;
-}
-
 String getEnv(const std::string& name)
 {
 	Function f("Sys.getenv('" + name + "')");
@@ -206,7 +166,7 @@ void addContextObjects(QQmlApplicationEngine* engine)
 
 void sendMessage(const char * msg)
 {
-	Rcout << "Send Message " << msg << std::endl;
+	Rcout << "Send Message: " << msg << std::endl;
 }
 
 bool init()
@@ -281,50 +241,10 @@ void loadDataSet(Rcpp::List data)
 
 	DataSetProvider* provider = DataSetProvider::getProvider(gl_param_dbInMemory);
 
-	Rcpp::RObject namesListRObject = data.names();
-	Rcpp::CharacterVector namesList;
-
-	if (!namesListRObject.isNULL())
-		namesList = namesListRObject;
-
-	provider->dataSet()->setColumnCount(data.size());
-
-	int maxRows = 0;
-
-	for (int colNr = 0; colNr < data.size(); colNr++)
-	{
-		std::string name(namesList[colNr]);
-		std::vector<std::string> column;
-
-		if(name == "")
-			name = "column_" + std::to_string(colNr);
-
-		Rcpp::RObject colObj = (Rcpp::RObject)data[colNr];
-
-		// TODO: This could be made more efficient: if we have integers or doubles, initialize the column in the dataset directly with these integers and doubles
-		// Now we transform them into strings, and inside initColumnWithStrings re-transform them into integers or doubles.
-		if(Rcpp::is<Rcpp::NumericVector>(colObj))			column = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
-		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		column = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
-		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		column = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
-		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	column = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
-		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
-		else
-		{
-			Rcout << "Unknown type of variable " << name << "!" << std::endl;
-			column = std::vector<std::string>(maxRows);
-		}
-
-		if (column.size() > maxRows)
-			maxRows = column.size();
-		if (provider->dataSet()->rowCount() < maxRows)
-			provider->dataSet()->setRowCount(maxRows);
-
-		provider->dataSet()->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, gl_param_threshold, gl_param_orderLabelsByValue);
-	}
+	DataFrameImporter::loadDataSet(provider->dataSet(), data, gl_param_threshold, gl_param_orderLabelsByValue);
 
 	ColumnEncoder::columnEncoder()->setCurrentNames(provider->dataSet()->getColumnNames(), true);
 }
-
 
 AnalysisForm* getQmlForm(const QString& qmlFileStr)
 {
@@ -443,8 +363,6 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 	if (!init())
 		return "Error during initialization";
 
-	gl_qmlEngine->clearComponentCache();
-
 	QString modulePathQ		= tq(modulePath.get_cstring()),
 			moduleNameQ;
 
@@ -490,15 +408,14 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 		}
 	}
 
-	QString result;
 	for (auto analysis : analyses)
 	{
-		result.append("Analysis " + analysis.first + " with qml file " + analysis.second + "\n");
+		Rcout << "Analysis " << fq(analysis.first) << " with qml file " << fq(analysis.second) << std::endl;
 		if (!_generateWrapper(modulePathQ, analysis.first, analysis.second, preloadData))
-			return std::string("Error when generating wrapper of ") + analysis.first;
+			return "Error when generating wrapper of " + fq(analysis.first);
 	}
 
-	return fq(result);
+	return "Wrappers generated";
 }
 
 
@@ -523,9 +440,9 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly, and know directly
 	// what is the name of the qml file and if it uses preloadData
 	if (!_generateWrapper(modulePathQ, analysisNameQ, qmlFileNameQ, preloadData))
-		return std::string("Error when generating wrapper of ") + fq(analysisNameQ);
+		return "Error when generating wrapper of " + fq(analysisNameQ);
 
-	return std::string("Wrapper generated for analysis ") + fq(analysisNameQ);
+	return "Wrapper generated for analysis " + fq(analysisNameQ);
 }
 
 
