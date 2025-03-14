@@ -26,8 +26,15 @@ else
         echo "Use default QT_DIR: ${QT_DIR}"
 fi
 
-JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop2-Qt_6_8_2_for_macOS-Debug
-JASP_SOURCE_DIR=~/JASP/source/jasp-desktop2
+if [[ ! "${JASP_BUILD_DIR}" ]]; then
+	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop2-Qt_6_8_2_for_macOS-Debug
+fi
+echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
+
+if [[ ! "${JASP_SOURCE_DIR}" ]]; then
+	JASP_SOURCE_DIR=~/JASP/source/jasp-desktop2
+fi
+echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
 
 if [[ ! "${JASPQMLCONTROLSPLUGIN_SOURCE_DIR}" ]]; then
 	JASPQMLCONTROLSPLUGIN_SOURCE_DIR="${JASP_SOURCE_DIR}"/QMLComponents
@@ -64,14 +71,12 @@ PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/controls
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/rsyntax
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/ALTNavigation
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/utilities
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/EngineLib
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/R-Interface
 
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComponentsplugin.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/EngineLib/libEngineLib.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-InterfaceNoRInside.a
 
 	PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2

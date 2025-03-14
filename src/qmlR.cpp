@@ -36,10 +36,12 @@ using namespace Rcpp;
 #include "qmlutils.h"
 #include "columnutils.h"
 #include "DataSetProvider.h"
-#include "enginebase.h"
+#include "databridge.h"
 #include "rbridge.h"
 #include "processinfo.h"
 #include "tempfiles.h"
+#include "analysisbase.h"
+#include "analysisform.h"
 
 #include <QtPlugin>
 Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
@@ -48,18 +50,17 @@ Q_IMPORT_PLUGIN(JASP_ControlsPlugin)
 #define STRINGIZE(x) _STRINGIZE(x)
 
 
-static bool								gl_initialized					= false;
-static QString							gl_qt_install_dir;
-static QGuiApplication			*		gl_application					= nullptr;
-static QQmlApplicationEngine	*		gl_qmlEngine					= nullptr;
-static EngineBase				*		gl_jaspEngine					= nullptr;
-static ColumnEncoder			*		gl_extraEncodings				= nullptr;
+static bool									gl_initialized					= false;
+static QGuiApplication			*			gl_application					= nullptr;
+static QQmlApplicationEngine	*			gl_qmlEngine					= nullptr;
+static DataBridge				*			gl_dataBridge					= nullptr;
+static ColumnEncoder			*			gl_extraEncodings				= nullptr;
+static QMap<QString, std::pair<QDateTime, AnalysisForm* > >	gl_qmlFormMap;
 
-static bool								gl_param_dbInMemory				= true;
-static bool								gl_param_preloadData			= true;
-static bool								gl_param_orderLabelsByValue		= true;
-static int								gl_param_threshold				= 10;
-static std::string						gl_param_resultFont				=
+static bool									gl_param_dbInMemory				= true;
+static bool									gl_param_orderLabelsByValue		= true;
+static int									gl_param_threshold				= 10;
+static std::string							gl_param_resultFont				=
 #ifdef WIN32
 	"Arial,sans-serif,freesans,\"Segoe UI\"";
 #elif __APPLE__
@@ -68,7 +69,35 @@ static std::string						gl_param_resultFont				=
 	"freesans,sans-serif";
 #endif
 
+void blockSignalsRecursive(QObject* item)
+{
+	for (QObject* obj : item->children())
+		blockSignalsRecursive(obj);
+	item->blockSignals(true);
+}
 
+void deleteQuickItem(QQuickItem* item)
+{
+	blockSignalsRecursive(item);
+	item->setParent(nullptr);
+	item->setParentItem(nullptr);
+	delete item;
+}
+
+// [[Rcpp::export]]
+void clearUp()
+{
+	for (auto value : gl_qmlFormMap.values())
+		deleteQuickItem(value.second);
+
+	gl_qmlFormMap.clear();
+
+	if (gl_qmlEngine)
+	{
+		gl_qmlEngine->clearSingletons();
+		gl_qmlEngine->clearComponentCache();
+	}
+}
 
 // [[Rcpp::export]]
 bool setParameter(String name, SEXP value)
@@ -83,11 +112,6 @@ bool setParameter(String name, SEXP value)
 	else if (nameStr == "dbInMemory" && Rcpp::is<bool>(value))
 	{
 		gl_param_dbInMemory = Rcpp::as<bool>(value);
-		return true;
-	}
-	else if (nameStr == "preloadData" && Rcpp::is<bool>(value))
-	{
-		gl_param_preloadData = Rcpp::as<bool>(value);
 		return true;
 	}
 	else if (nameStr == "threshold" && Rcpp::is<int>(value))
@@ -143,62 +167,11 @@ std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj)
 	return vecresult;
 }
 
-
-
-void printFolder(StringVector& output, const QDir& dir, int depth = 0)
-{
-	for (QFileInfo info : dir.entryInfoList())
-	{
-		QString text = QString("Niveau %1: ").arg(depth);
-		text += info.baseName() + ", " + info.absoluteFilePath() + ", " + info.canonicalFilePath() + ": " + (info.isDir() ? "Folder" : (info.isFile() ? "file" : "???"));
-		output.push_back(text.toStdString());
-		if (info.isDir() && info.baseName() != "qt-project")
-		{
-			QDir dir2(info.absoluteFilePath());
-			printFolder(output, dir2, depth + 1);
-		}
-		else if (info.baseName() == "qmldir")
-		{
-			QFile inputFile(info.absoluteFilePath());
-			if (inputFile.open(QIODevice::ReadOnly))
-			{
-			   QTextStream in(&inputFile);
-			   while (!in.atEnd())
-				  output.push_back(in.readLine().toStdString());
-			   inputFile.close();
-			}
-		}
-
-	}
-
-}
-
 String getEnv(const std::string& name)
 {
 	Function f("Sys.getenv('" + name + "')");
 
 	return f();
-}
-
-
-void addMsg(Json::Value& jsonResult, const std::string& msg, const std::string& type)
-{
-	std::string errorMsg;
-	if (jsonResult.isMember(type))
-		errorMsg = jsonResult[type].toStyledString() + "\n";
-	errorMsg += msg;
-
-	jsonResult[type] = errorMsg;
-}
-
-void addError(Json::Value& jsonResult, const std::string& msg)
-{
-	addMsg(jsonResult, msg, "error");
-}
-
-void addInfo(Json::Value& jsonResult, const std::string& msg)
-{
-	addMsg(jsonResult, msg, "info");
 }
 
 void addContextObjects(QQmlApplicationEngine* engine)
@@ -231,32 +204,36 @@ void addContextObjects(QQmlApplicationEngine* engine)
 
 }
 
-void init(Json::Value& output)
+void sendMessage(const char * msg)
 {
-	if (gl_initialized) return;
+	Rcout << "Send Message " << msg << std::endl;
+}
+
+bool init()
+{
+	if (gl_initialized) return true;
 	gl_initialized = true;
 
 	TempFiles::init(ProcessInfo::currentPID());
 
 	DataSetProvider::getProvider(gl_param_dbInMemory, false); // Create the DataSetProvider in case the loadDataSet was not already called
 
-	gl_jaspEngine = new EngineBase(ProcessInfo::currentPID(), gl_param_dbInMemory);
+	gl_dataBridge = new DataBridge(ProcessInfo::currentPID(), gl_param_dbInMemory);
 	gl_extraEncodings = new ColumnEncoder("JaspExtraOptions_");
 
-	rbridge_init(gl_jaspEngine, [](const char *msg){ }, [](){ return false; }, gl_extraEncodings, gl_param_resultFont.c_str());
+	rbridge_init(gl_dataBridge, sendMessage, [](){ return false; }, gl_extraEncodings, gl_param_resultFont.c_str());
 
 	jaspRCPP_init_jaspBase(false);
 
-	gl_qt_install_dir = qgetenv("QT_DIR");
+	QString qt_install_dir = qgetenv("QT_DIR");
 #ifdef QT_DIR
-	if (gl_qt_install_dir.isEmpty())
-		gl_qt_install_dir = STRINGIZE(QT_DIR);
+	if (qt_install_dir.isEmpty())
+		qt_install_dir = STRINGIZE(QT_DIR);
 #endif
-	addInfo(output, "QT_DIR found in environment: " + fq(gl_qt_install_dir));
-
+	Rcout << "QT_DIR found in environment: " + fq(qt_install_dir) << std::endl;
 
 	QString rHome = qgetenv("R_HOME");
-	addInfo(output, "R_HOME: " + fq(rHome));
+	Rcout << "R_HOME: " << fq(rHome) << std::endl;
 
 	int					dummyArgc = 1;
 	char				dummyArgv[2];
@@ -279,7 +256,6 @@ void init(Json::Value& output)
 		argvs[i][							strlen(arguments[i])] = '\0';
 	}
 
-
 	qputenv("QT_QPA_PLATFORM", "minimal");
 
 	gl_application = new QGuiApplication(argc, argvs);
@@ -291,13 +267,18 @@ void init(Json::Value& output)
 	gl_qmlEngine->rootContext()->setContextProperty("NO_DESKTOP_MODE",	true);
 	QQuickStyle::setStyle("Basic"); // This removes warnings "The current style does not support customization of this control"
 
+	return true;
 }
 
 // [[Rcpp::export]]
 void loadDataSet(Rcpp::List data)
 {
-	Json::Value output;
-	init(output);
+	if (!init())
+	{
+		Rcout << "Error during initialization" << std::endl;
+		return;
+	}
+
 	DataSetProvider* provider = DataSetProvider::getProvider(gl_param_dbInMemory);
 
 	Rcpp::RObject namesListRObject = data.names();
@@ -305,9 +286,6 @@ void loadDataSet(Rcpp::List data)
 
 	if (!namesListRObject.isNULL())
 		namesList = namesListRObject;
-
-	std::string hello;
-
 
 	provider->dataSet()->setColumnCount(data.size());
 
@@ -332,7 +310,7 @@ void loadDataSet(Rcpp::List data)
 		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
 		else
 		{
-			// TODO print an error
+			Rcout << "Unknown type of variable " << name << "!" << std::endl;
 			column = std::vector<std::string>(maxRows);
 		}
 
@@ -348,15 +326,57 @@ void loadDataSet(Rcpp::List data)
 }
 
 
-// [[Rcpp::export]]
-String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
+AnalysisForm* getQmlForm(const QString& qmlFileStr)
 {
-	bool hasError = false;
-	Json::Value jsonResult;
-	init(jsonResult);
+	AnalysisForm* qmlForm = nullptr;
 
-//	gl_qmlEngine->clearSingletons();
-//	gl_qmlEngine->clearComponentCache();
+	QFileInfo	qmlFileInfo(qmlFileStr);
+	if (!qmlFileInfo.exists())
+	{
+		Rcout << "File not found: " << fq(qmlFileStr) << std::endl;
+		return nullptr;
+	}
+
+	if (gl_qmlFormMap.contains(qmlFileStr) && gl_qmlFormMap[qmlFileStr].first == qmlFileInfo.lastModified())
+		qmlForm = gl_qmlFormMap[qmlFileStr].second;
+	else
+	{
+		QUrl urlFile = QUrl::fromLocalFile(qmlFileInfo.absoluteFilePath());
+		QQmlComponent	qmlComp( gl_qmlEngine, urlFile, QQmlComponent::PreferSynchronous);
+
+		qmlForm = qobject_cast<AnalysisForm*>(qmlComp.create());
+
+		if (qmlComp.errors().length() > 0)
+		{
+			for(const auto & error : qmlComp.errors())
+				Rcout << "Error when creating component at " << fq(QString::number(error.line())) << "," << fq(QString::number(error.column())) << ": " << fq(error.description()) << std::endl;
+		}
+
+		if (!qmlForm)
+		{
+			Rcout << "QML Form could not be created" << std::endl;
+			return nullptr;
+		}
+
+		qmlForm->setAnalysis(new AnalysisBase(qmlForm)); // Set dummy analysis
+		gl_application->processEvents();
+
+		if (gl_qmlFormMap.contains(qmlFileStr))
+			deleteQuickItem(gl_qmlFormMap[qmlFileStr].second); // delete old version of the form
+		gl_qmlFormMap[qmlFileStr] = std::make_pair(qmlFileInfo.lastModified(), qmlForm);
+	}
+
+	return qmlForm;
+}
+
+// [[Rcpp::export]]
+String loadQmlAndRunAnalysis(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData)
+{
+	if (!init())
+	{
+		Rcout << "Error during initialization" << std::endl;
+		return "";
+	}
 
 	std::string qmlFileStr		= qmlFile.get_cstring(),
 				optionsStr		= options.get_cstring(),
@@ -364,128 +384,64 @@ String loadQmlFileAndCheckOptions(String moduleName, String analysisName, String
 				analysisNameStr	= analysisName.get_cstring(),
 				moduleNameStr	= moduleName.get_cstring();
 
-	QFileInfo	qmlFileInfo(QString::fromStdString(qmlFileStr));
-	if (!qmlFileInfo.exists())
+
+	AnalysisForm* form = getQmlForm(tq(qmlFileStr));
+
+	if (!form)
 	{
-		hasError = true;
-		addError(jsonResult, "File NOT found");
+		Rcout << "Cannot create QML Form " << qmlFileStr << std::endl;
+		return "";
 	}
 
-	QQuickItem* item = nullptr;
-	if (!hasError)
-	{
-		QUrl urlFile = QUrl::fromLocalFile(qmlFileInfo.absoluteFilePath());
-		QQmlComponent	qmlComp( gl_qmlEngine, urlFile, QQmlComponent::PreferSynchronous);
+	QString returnedValue = form->parseOptions(tq(optionsStr));
 
-		item = qobject_cast<QQuickItem*>(qmlComp.create());
-
-		for(const auto & error : qmlComp.errors())
-		{
-			hasError = true;
-			addError(jsonResult, "Error when creating component at " + fq(QString::number(error.line())) + "," + fq(QString::number(error.column())) + ": " + fq(error.description()));
-		}
-
-		if (!item)
-		{
-			hasError = true;
-			addError(jsonResult, "Item not created");
-		}
-	}
-
-	if (hasError)
-		return jsonResult.toStyledString();
-
-	gl_application->processEvents();
-
-	QString returnedValue;
-
-	QMetaObject::invokeMethod(item, "parseOptions",
-		Q_RETURN_ARG(QString, returnedValue),
-		Q_ARG(QString, tq(optionsStr)));
-
+	Json::Value		jsonResult;
 	Json::Reader	jsonReader;
 	jsonReader.parse(fq(returnedValue), jsonResult);
 	Json::Value		jsonOptions = jsonResult["options"];
 
 	gl_extraEncodings->setCurrentNamesFromOptionsMeta(jsonOptions);
-	gl_jaspEngine->updateOptionsAccordingToMeta(jsonOptions);
+	gl_dataBridge->updateOptionsAccordingToMeta(jsonOptions);
 	ColumnEncoder::colsPlusTypes analysisColsTypes = ColumnEncoder::encodeColumnNamesinOptions(jsonOptions, preloadData);
 
 	static int analysisRevision = 0;
 	analysisRevision++;
 
-	// This does not call the analysis, but sets some configuration settings
-	rbridge_runModuleCall(analysisNameStr, analysisNameStr, moduleNameStr, "{}",
+	std::string fullName = moduleNameStr + "::" + analysisNameStr + "Internal";
+	rbridge_runModuleCall(fullName, analysisNameStr, fullName, "{}",
 												   jsonOptions.toStyledString(), "{}", 1, analysisRevision,
-												   false, analysisColsTypes, preloadData, false);
+												   false, analysisColsTypes, preloadData);
 
-	jsonResult["options"] = jsonOptions;
-
-	return jsonResult.toStyledString();
+	return jsonOptions.toStyledString();
 }
 
-bool _generateWrapper(Json::Value& jsonResult, const QString& modulePath, const QString& analysisName, const QString& qmlFileName, bool preloadData)
+bool _generateWrapper(const QString& modulePath, const QString& analysisName, const QString& qmlFileName, bool preloadData)
 {
-	bool hasError = false;
-	QQuickItem* item = nullptr;
-	QFileInfo	qmlFile(modulePath + "/inst/qml/" + qmlFileName);
+	QString qmlFilePath = modulePath + "/inst/qml/" + qmlFileName;
 
-	if (!qmlFile.exists())
+	AnalysisForm* form = getQmlForm(qmlFilePath);
+	if (!form)
 	{
-		hasError = true;
-		addError(jsonResult, "QML File NOT found: " + fq(qmlFile.absoluteFilePath()));
-	}
-	else
-	{
-		QUrl urlFile = QUrl::fromLocalFile(qmlFile.absoluteFilePath());
-		QQmlComponent	qmlComp( gl_qmlEngine, urlFile, QQmlComponent::PreferSynchronous);
-
-		item = qobject_cast<QQuickItem*>(qmlComp.create());
-
-		for(const auto & error : qmlComp.errors())
-		{
-			hasError = true;
-			addError(jsonResult, "Error when creating component at " + fq(QString::number(error.line())) + "," + fq(QString::number(error.column())) + ": " + fq(error.description()));
-		}
-
-		if (!item)
-		{
-			hasError = true;
-			addError(jsonResult, "Item not created");
-		}
+		Rcout << "Cannot create the QML form " << qmlFilePath << std::endl;
+		return false;
 	}
 
-	if (!hasError)
-	{
-		QString returnedValue;
-		QString moduleName = QDir(modulePath).dirName();
+	QString returnedValue = form->generateWrapper(QDir(modulePath).dirName(), analysisName, qmlFileName, preloadData);
 
-		gl_application->processEvents();
-
-		QMetaObject::invokeMethod(item, "generateWrapper",
-			Q_RETURN_ARG(QString, returnedValue),
-			Q_ARG(QString, moduleName),
-			Q_ARG(QString, analysisName),
-			Q_ARG(QString, qmlFileName),
-			Q_ARG(bool, preloadData)
-		);
-
-		QFile file(modulePath + "/R/" + analysisName + "Wrapper.R");
-		if (file.open(QIODevice::ReadWrite)) {
-			QTextStream stream(&file);
-			stream << returnedValue;
-		}
+	QFile file(modulePath + "/R/" + analysisName + "Wrapper.R");
+	if (file.open(QIODevice::ReadWrite)) {
+		QTextStream stream(&file);
+		stream << returnedValue;
 	}
 
-	return !hasError;
+	return true;
 }
 
 // [[Rcpp::export]]
-String generateModuleWrappers(String modulePath)
+String generateModuleWrappers(String modulePath, bool preloadData)
 {
-	bool hasError = false;
-	Json::Value jsonResult;
-	init(jsonResult);
+	if (!init())
+		return "Error during initialization";
 
 	gl_qmlEngine->clearComponentCache();
 
@@ -495,52 +451,41 @@ String generateModuleWrappers(String modulePath)
 	QDir moduleDir(modulePathQ);
 
 	if (!moduleDir.exists())
-	{
-		hasError = true;
-		addError(jsonResult, "Module path not found: " + fq(modulePathQ));
-	}
+		return "Module path not found: " + fq(modulePathQ);
 
 	QVector<std::pair<QString, QString> > analyses;
-	if (!hasError)
+	QFile qmlDescriptionFile(modulePathQ + "/inst/Description.qml");
+	if (!qmlDescriptionFile.exists())
+		return "Description.qml file not found in " + fq(modulePathQ);
+
+	QString fileContent;
+	QStringList analysesPart;
+	// TODO: The Description.qml cannot be loaded by the QML Engine, since it does not have access to the JASP.Module
+	// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly.
+	// For the time being, just try to parse the Description.qml to detect the Analyses and their properties.
+	if (qmlDescriptionFile.open(QIODevice::ReadOnly))
 	{
-		QFile qmlDescriptionFile(modulePathQ + "/inst/Description.qml");
-		if (!qmlDescriptionFile.exists())
+		fileContent = qmlDescriptionFile.readAll();
+		analysesPart = fileContent.split("Analysis");
+		for (int i = 1; i < analysesPart.length(); i++)
 		{
-			hasError = true;
-			addError(jsonResult, "Description.qml file not found in " + fq(modulePathQ));
-		}
-		else
-		{
-			QString fileContent;
-			QStringList analysesPart;
-			// TODO: The Description.qml cannot be loaded by the QML Engine, since it does not have access to the JASP.Module
-			// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly.
-			// For the time being, just try to parse the Description.qml to detect the Analyses and their properties.
-			if (qmlDescriptionFile.open(QIODevice::ReadOnly))
+			QStringList lines = analysesPart[i].split("\n");
+			QString analysisName, qmlFileName;
+
+			for (QString line : lines)
 			{
-				fileContent = qmlDescriptionFile.readAll();
-				analysesPart = fileContent.split("Analysis");
-				for (int i = 1; i < analysesPart.length(); i++)
-				{
-					QStringList lines = analysesPart[i].split("\n");
-					QString analysisName, qmlFileName;
+				line = line.trimmed();
+				if (line.startsWith("func"))
+					analysisName = line.split(":")[1].trimmed().replace('"', "");
+				else if (line.startsWith("qml"))
+					qmlFileName = line.split(":")[1].trimmed().replace('"', "");
+			}
 
-					for (QString line : lines)
-					{
-						line = line.trimmed();
-						if (line.startsWith("func"))
-							analysisName = line.split(":")[1].trimmed().replace('"', "");
-						else if (line.startsWith("qml"))
-							qmlFileName = line.split(":")[1].trimmed().replace('"', "");
-					}
-
-					if (!analysisName.isEmpty())
-					{
-						if (qmlFileName.isEmpty())
-							qmlFileName = analysisName + ".qml";
-						analyses.append(std::make_pair(analysisName, qmlFileName));
-					}
-				}
+			if (!analysisName.isEmpty())
+			{
+				if (qmlFileName.isEmpty())
+					qmlFileName = analysisName + ".qml";
+				analyses.append(std::make_pair(analysisName, qmlFileName));
 			}
 		}
 	}
@@ -549,22 +494,19 @@ String generateModuleWrappers(String modulePath)
 	for (auto analysis : analyses)
 	{
 		result.append("Analysis " + analysis.first + " with qml file " + analysis.second + "\n");
-		hasError = !_generateWrapper(jsonResult, modulePathQ, analysis.first, analysis.second, gl_param_preloadData);
+		if (!_generateWrapper(modulePathQ, analysis.first, analysis.second, preloadData))
+			return std::string("Error when generating wrapper of ") + analysis.first;
 	}
 
-	if (hasError)
-		return jsonResult["error"].toStyledString();
-	else
-		return fq(result);
+	return fq(result);
 }
 
 
 // [[Rcpp::export]]
 String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData)
 {
-	bool hasError = false;
-	Json::Value jsonResult;
-	init(jsonResult);
+	if (!init())
+		return "Error during initialization";
 
 	gl_qmlEngine->clearComponentCache();
 
@@ -576,17 +518,14 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	QDir moduleDir(modulePathQ);
 
 	if (!moduleDir.exists())
-		addError(jsonResult, "Module path not found: " + fq(modulePathQ));
+		return "Module path not found: " + fq(modulePathQ);
 
-	if (!hasError)
-		// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly, and know directly
-		// what is the name of the qml file and if it uses preloadData
-		hasError = !_generateWrapper(jsonResult, modulePathQ, analysisNameQ, qmlFileNameQ, preloadData);
+	// If JASP.Module is set as a a Qt module/plugin (as JASP.Controls), then we could load it and uses the Description object directly, and know directly
+	// what is the name of the qml file and if it uses preloadData
+	if (!_generateWrapper(modulePathQ, analysisNameQ, qmlFileNameQ, preloadData))
+		return std::string("Error when generating wrapper of ") + fq(analysisNameQ);
 
-	if (!hasError)
-		return "Wrapper generated for analysis " + fq(analysisNameQ);
-	else
-		return jsonResult["error"].toStyledString();
+	return std::string("Wrapper generated for analysis ") + fq(analysisNameQ);
 }
 
 
