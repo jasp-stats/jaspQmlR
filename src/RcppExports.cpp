@@ -5,51 +5,93 @@
 
 using namespace Rcpp;
 
-// checkOptions
-String checkOptions(String jsonValue);
-RcppExport SEXP _checkOptions(SEXP jsonValueSEXP) {
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
+// clearUp
+void clearUp();
+RcppExport SEXP _jaspQmlR_clearUp() {
 BEGIN_RCPP
-	Rcpp::RObject rcpp_result_gen;
-	Rcpp::RNGScope rcpp_rngScope_gen;
-	Rcpp::traits::input_parameter< String >::type jsonValue(jsonValueSEXP);
-	rcpp_result_gen = Rcpp::wrap(checkOptions(jsonValue));
-	return rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clearUp();
+    return R_NilValue;
 END_RCPP
 }
-
-
-// generateAnalysisWrapper
-String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName);
-RcppExport SEXP _generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP) {
+// setParameter
+bool setParameter(String name, SEXP value);
+RcppExport SEXP _jaspQmlR_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
-	Rcpp::RObject rcpp_result_gen;
-	Rcpp::RNGScope rcpp_rngScope_gen;
-	Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
-	Rcpp::traits::input_parameter< String >::type qmlFileName(qmlFileNameSEXP);
-	Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
-	rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName));
-	return rcpp_result_gen;
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type name(nameSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type value(valueSEXP);
+    rcpp_result_gen = Rcpp::wrap(setParameter(name, value));
+    return rcpp_result_gen;
 END_RCPP
 }
-
+// loadDataSet
+void loadDataSet(Rcpp::List data);
+RcppExport SEXP _jaspQmlR_loadDataSet(SEXP dataSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
+    loadDataSet(data);
+    return R_NilValue;
+END_RCPP
+}
+// loadQmlAndParseOptions
+String loadQmlAndParseOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
+RcppExport SEXP _jaspQmlR_loadQmlAndParseOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type moduleName(moduleNameSEXP);
+    Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< String >::type qmlFile(qmlFileSEXP);
+    Rcpp::traits::input_parameter< String >::type options(optionsSEXP);
+    Rcpp::traits::input_parameter< String >::type version(versionSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadQmlAndParseOptions(moduleName, analysisName, qmlFile, options, version, preloadData));
+    return rcpp_result_gen;
+END_RCPP
+}
 // generateModuleWrappers
-String generateModuleWrappers(String modulePath);
-RcppExport SEXP _generateModuleWrappers(SEXP modulePathSEXP) {
+String generateModuleWrappers(String modulePath, bool preloadData);
+RcppExport SEXP _jaspQmlR_generateModuleWrappers(SEXP modulePathSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
-	Rcpp::RObject rcpp_result_gen;
-	Rcpp::RNGScope rcpp_rngScope_gen;
-	Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
-	rcpp_result_gen = Rcpp::wrap(generateModuleWrappers(modulePath));
-	return rcpp_result_gen;
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(generateModuleWrappers(modulePath, preloadData));
+    return rcpp_result_gen;
 END_RCPP
 }
-
+// generateAnalysisWrapper
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData);
+RcppExport SEXP _jaspQmlR_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP, SEXP preloadDataSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
+    Rcpp::traits::input_parameter< String >::type qmlFileName(qmlFileNameSEXP);
+    Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
+    rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName, preloadData));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-	{"_qmlR_checkOptions", (DL_FUNC) &_checkOptions, 1},
-	{"_qmlR_generateAnalysisWrapper", (DL_FUNC) &_generateAnalysisWrapper, 3},
-	{"_qmlR_generateModuleWrappers", (DL_FUNC) &_generateModuleWrappers, 1},
-	{NULL, NULL, 0}
+    {"_jaspQmlR_clearUp", (DL_FUNC) &_jaspQmlR_clearUp, 0},
+    {"_jaspQmlR_setParameter", (DL_FUNC) &_jaspQmlR_setParameter, 2},
+    {"_jaspQmlR_loadDataSet", (DL_FUNC) &_jaspQmlR_loadDataSet, 1},
+    {"_jaspQmlR_loadQmlAndParseOptions", (DL_FUNC) &_jaspQmlR_loadQmlAndParseOptions, 6},
+    {"_jaspQmlR_generateModuleWrappers", (DL_FUNC) &_jaspQmlR_generateModuleWrappers, 2},
+    {"_jaspQmlR_generateAnalysisWrapper", (DL_FUNC) &_jaspQmlR_generateAnalysisWrapper, 4},
+    {NULL, NULL, 0}
 };
 
 RcppExport void R_init_jaspQmlR(DllInfo *dll) {
