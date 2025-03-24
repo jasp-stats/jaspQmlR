@@ -19,18 +19,22 @@
 #ifndef DATAFRAMEIMPORTER_H
 #define DATAFRAMEIMPORTER_H
 
-#include "dataset.h"
 #include <Rcpp.h>
-using namespace Rcpp;
+#include "rjasp_interface.h"
+
+
 
 
 class DataFrameImporter
 {
 
 public:
-	static void loadDataSet(DataSet* dataset, Rcpp::List dataframe, int threshold, bool orderLabelsByValue);
+	static const RJASP_DataSet& loadDataFrame(Rcpp::List dataframe);
 
 private:
+	static RJASP_DataSet datasetStatic;
+	static void freeDataSet();
+
 	template<int RTYPE>
 	static std::vector<std::string> readCharacterVector(Rcpp::Vector<RTYPE>	obj);
 };

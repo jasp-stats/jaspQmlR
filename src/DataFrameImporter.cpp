@@ -17,7 +17,18 @@
 //
 
 #include "DataFrameImporter.h"
-#include "columnutils.h"
+
+RJASP_DataSet DataFrameImporter::datasetStatic;
+
+std::string doubleToString(double dbl)
+{
+	if (dbl > std::numeric_limits<double>::max())		return "∞";
+	if (dbl < std::numeric_limits<double>::lowest())	return "-∞";
+
+	std::stringstream conv; //Use this instead of std::to_string to make sure there are no trailing zeroes (and to get full precision)
+	conv << dbl;
+	return conv.str();
+}
 
 template<int RTYPE>  inline std::string RVectorEntry_to_String(Rcpp::Vector<RTYPE> obj, int row) { return ""; }
 
@@ -43,7 +54,7 @@ template<> inline std::string RVectorEntry_to_String<REALSXP>(Rcpp::Vector<REALS
 			   R_IsNaN(val) ? "NaN" :
 			   val == std::numeric_limits<double>::infinity() ? "\u221E" :
 			   val == -1 * std::numeric_limits<double>::infinity() ? "-\u221E"  :
-			   ColumnUtils::doubleToString((double)(obj[row]));
+			   doubleToString((double)(obj[row]));
 }
 
 template<int RTYPE>
@@ -56,8 +67,29 @@ std::vector<std::string> DataFrameImporter::readCharacterVector(Rcpp::Vector<RTY
 	return vecresult;
 }
 
-void DataFrameImporter::loadDataSet(DataSet* dataset, Rcpp::List dataframe, int threshold, bool orderLabelsByValue)
+void DataFrameImporter::freeDataSet()
 {
+	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
+	{
+		RJASP_Column& column = datasetStatic.columns[colNr];
+		free(column.name);
+		for (int rowNr = 0; rowNr < datasetStatic.rowCount; rowNr++)
+			free(column.values[rowNr]);
+		free(column.values);
+	}
+
+	free(datasetStatic.name);
+	free(datasetStatic.columns);
+
+	datasetStatic.name = nullptr;
+	datasetStatic.columnCount = 0;
+	datasetStatic.rowCount = 0;
+	datasetStatic.columns = nullptr;
+}
+
+const RJASP_DataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
+{
+	freeDataSet();
 
 	Rcpp::RObject namesListRObject = dataframe.names();
 	Rcpp::CharacterVector namesList;
@@ -65,39 +97,56 @@ void DataFrameImporter::loadDataSet(DataSet* dataset, Rcpp::List dataframe, int 
 	if (!namesListRObject.isNULL())
 		namesList = namesListRObject;
 
-	dataset->setColumnCount(dataframe.size());
+	datasetStatic.columnCount = dataframe.size();
+	datasetStatic.columns = static_cast<RJASP_Column*>(calloc(dataframe.size(), sizeof(RJASP_Column)));
 
 	int maxRows = 0;
+	std::vector<std::vector<std::string>> allColumns;
 
 	for (int colNr = 0; colNr < dataframe.size(); colNr++)
 	{
-		std::string name(namesList[colNr]);
-		std::vector<std::string> column;
+		RJASP_Column& column	= datasetStatic.columns[colNr];
 
-		if(name == "")
-			name = "column_" + std::to_string(colNr);
+		std::string colName(namesList[colNr]);
+		if(colName == "")
+			colName = "column_" + std::to_string(colNr);
+
+		column.name = strdup(colName.c_str());
+
+		std::vector<std::string> colValues;
 
 		Rcpp::RObject colObj = (Rcpp::RObject)dataframe[colNr];
 
-		// TODO: This could be made more efficient: if we have integers or doubles, initialize the column in the dataset directly with these integers and doubles
-		// Now we transform them into strings, and inside initColumnWithStrings re-transform them into integers or doubles.
-		if(Rcpp::is<Rcpp::NumericVector>(colObj))			column = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
-		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		column = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
-		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		column = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
-		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	column = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
-		else if(Rcpp::is<Rcpp::StringVector>(colObj))		column = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
+		if(Rcpp::is<Rcpp::NumericVector>(colObj))			colValues = readCharacterVector<REALSXP>((Rcpp::NumericVector)colObj);
+		else if(Rcpp::is<Rcpp::IntegerVector>(colObj))		colValues = readCharacterVector<INTSXP>((Rcpp::IntegerVector)colObj);
+		else if(Rcpp::is<Rcpp::LogicalVector>(colObj))		colValues = readCharacterVector<LGLSXP>((Rcpp::LogicalVector)colObj);
+		else if(Rcpp::is<Rcpp::CharacterVector>(colObj))	colValues = readCharacterVector<STRSXP>((Rcpp::CharacterVector)colObj);
+		else if(Rcpp::is<Rcpp::StringVector>(colObj))		colValues = readCharacterVector<STRSXP>((Rcpp::StringVector)colObj);
 		else
 		{
-			Rcout << "Unknown type of variable " << name << "!" << std::endl;
-			column = std::vector<std::string>(maxRows);
+			Rcpp::Rcout << "Unknown type of variable " << colName << "!" << std::endl;
+			colValues = std::vector<std::string>(maxRows);
 		}
 
-		if (column.size() > maxRows)
-			maxRows = column.size();
-		if (dataset->rowCount() < maxRows)
-			dataset->setRowCount(maxRows);
+		if (colValues.size() > maxRows)
+			maxRows = colValues.size();
 
-		dataset->initColumnWithStrings(colNr, name, column, {}, name, columnType::unknown, {}, threshold, orderLabelsByValue);
+		allColumns.push_back(colValues);
 	}
 
+	for (int colNr = 0; colNr < dataframe.size(); colNr++)
+	{
+		RJASP_Column& column	= datasetStatic.columns[colNr];
+
+		column.values = (char**)calloc(maxRows, sizeof(char*));
+		int i = 0;
+		for (const std::string &value: allColumns[colNr])
+			column.values[i++] = strdup(value.c_str());
+		for (; i < maxRows; i++)
+			column.values[i] = strdup("");
+	}
+
+	datasetStatic.rowCount = maxRows;
+
+	return datasetStatic;
 }
