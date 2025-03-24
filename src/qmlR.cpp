@@ -76,9 +76,7 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 				moduleNameStr	= moduleName.get_cstring();
 
 
-	const char * parsedOptions = RJASP_loadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
-
-	return parsedOptions;
+	return RJASP_loadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]
@@ -101,8 +99,17 @@ String generateAnalysisWrapper(String modulePath, String qmlFileName, String ana
 	return RJASP_generateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), preloadData);
 }
 
+// [[Rcpp::export]]
+Rcpp::List getVariableNames()
+{
+	return DataFrameImporter::getVariableNames();
+}
 
-
+// [[Rcpp::export]]
+Rcpp::List getVariableValues(String variableName)
+{
+	return DataFrameImporter::getVariableValues(variableName);
+}
 
 
 

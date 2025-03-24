@@ -30,6 +30,8 @@ class DataFrameImporter
 
 public:
 	static const RJASP_DataSet& loadDataFrame(Rcpp::List dataframe);
+	static Rcpp::List getVariableNames();
+	static Rcpp::List getVariableValues(Rcpp::String variableName);
 
 private:
 	static RJASP_DataSet datasetStatic;

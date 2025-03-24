@@ -150,3 +150,34 @@ const RJASP_DataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
 
 	return datasetStatic;
 }
+
+Rcpp::List DataFrameImporter::getVariableNames()
+{
+	Rcpp::List result;
+	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
+	{
+		RJASP_Column& column = datasetStatic.columns[colNr];
+		result.push_back((const char* )column.name);
+	}
+
+	return result;
+}
+
+Rcpp::List DataFrameImporter::getVariableValues(Rcpp::String variableName)
+{
+	Rcpp::List result;
+	std::string name = variableName.get_cstring();
+	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
+	{
+		RJASP_Column& column = datasetStatic.columns[colNr];
+		if (name == column.name)
+		{
+			for (int rowNr = 0; rowNr < datasetStatic.rowCount; rowNr++)
+				result.push_back((const char*)column.values[rowNr]);
+			return result;
+		}
+	}
+
+	return result;
+
+}

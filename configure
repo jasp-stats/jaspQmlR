@@ -62,7 +62,7 @@ PKG_LIBS=-g\ -arch\ arm64
 #PKG_LIBS=${PKG_LIBS}\ -isysroot\ /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk
 PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
 PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
-#PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
+PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
 PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/lib/libR.dylib"
 PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl"
 
@@ -70,24 +70,24 @@ PKG_CXXFLAGS=-DQT_DIR="${QT_DIR}"\ -DQT_STATICPLUGIN
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DQT_DEBUG_PLUGINS\ -DQT_CORE_LIB\ -DQT_GUI_LIB\ -DQT_NETWORK_LIB\ -DQT_OPENGL_LIB\ -DQT_QMLINTEGRATION_LIB\ -DQT_QMLMODELS_LIB\ -DQT_QML_LIB\ -DQT_QUICK_LIB
 PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/R_JASP-Interface
 
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${R_HOME}/library/RInside/include"
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/Common
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/CommonData
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/Common/jaspColumnEncoder
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/controls
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/rsyntax
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/ALTNavigation
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/utilities
-#PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/R-Interface
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${R_HOME}/library/RInside/include"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/Common
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/CommonData
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/Common/jaspColumnEncoder
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/controls
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/rsyntax
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/ALTNavigation
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/utilities
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/R-Interface
 
-#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComponentsplugin.a
-#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
-#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
-#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
-#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-Interface.a
-#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R_JASP-Interface/libRJaspInterface.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R_JASP-Interface/libRJaspInterface.dyLib
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComponentsplugin.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-Interface.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R_JASP-Interface/libRJaspInterface.a
+#PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R_JASP-Interface/libRJaspInterface.dyLib
 
 
 PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2

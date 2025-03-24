@@ -25,3 +25,11 @@ generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName, prelo
     .Call(`_jaspQmlR_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName, preloadData)
 }
 
+getVariableNames <- function() {
+    .Call(`_jaspQmlR_getVariableNames`)
+}
+
+getVariableValues <- function(variableName) {
+    .Call(`_jaspQmlR_getVariableValues`, variableName)
+}
+
