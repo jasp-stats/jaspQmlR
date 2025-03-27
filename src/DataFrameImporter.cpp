@@ -16,9 +16,9 @@
 // <http://www.gnu.org/licenses/>.
 //
 
-#include "DataFrameImporter.h"
+#include "dataframeimporter.h"
 
-RJASP_DataSet DataFrameImporter::datasetStatic;
+SyntaxBridgeDataSet DataFrameImporter::datasetStatic;
 
 std::string doubleToString(double dbl)
 {
@@ -71,7 +71,7 @@ void DataFrameImporter::freeDataSet()
 {
 	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
 	{
-		RJASP_Column& column = datasetStatic.columns[colNr];
+		SyntaxBridgeColumn& column = datasetStatic.columns[colNr];
 		free(column.name);
 		for (int rowNr = 0; rowNr < datasetStatic.rowCount; rowNr++)
 			free(column.values[rowNr]);
@@ -87,7 +87,7 @@ void DataFrameImporter::freeDataSet()
 	datasetStatic.columns = nullptr;
 }
 
-const RJASP_DataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
+const SyntaxBridgeDataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
 {
 	freeDataSet();
 
@@ -98,14 +98,14 @@ const RJASP_DataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
 		namesList = namesListRObject;
 
 	datasetStatic.columnCount = dataframe.size();
-	datasetStatic.columns = static_cast<RJASP_Column*>(calloc(dataframe.size(), sizeof(RJASP_Column)));
+	datasetStatic.columns = static_cast<SyntaxBridgeColumn*>(calloc(dataframe.size(), sizeof(SyntaxBridgeColumn)));
 
 	int maxRows = 0;
 	std::vector<std::vector<std::string>> allColumns;
 
 	for (int colNr = 0; colNr < dataframe.size(); colNr++)
 	{
-		RJASP_Column& column	= datasetStatic.columns[colNr];
+		SyntaxBridgeColumn& column	= datasetStatic.columns[colNr];
 
 		std::string colName(namesList[colNr]);
 		if(colName == "")
@@ -136,7 +136,7 @@ const RJASP_DataSet& DataFrameImporter::loadDataFrame(Rcpp::List dataframe)
 
 	for (int colNr = 0; colNr < dataframe.size(); colNr++)
 	{
-		RJASP_Column& column	= datasetStatic.columns[colNr];
+		SyntaxBridgeColumn& column	= datasetStatic.columns[colNr];
 
 		column.values = (char**)calloc(maxRows, sizeof(char*));
 		int i = 0;
@@ -156,7 +156,7 @@ Rcpp::List DataFrameImporter::getVariableNames()
 	Rcpp::List result;
 	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
 	{
-		RJASP_Column& column = datasetStatic.columns[colNr];
+		SyntaxBridgeColumn& column = datasetStatic.columns[colNr];
 		result.push_back((const char* )column.name);
 	}
 
@@ -169,7 +169,7 @@ Rcpp::List DataFrameImporter::getVariableValues(Rcpp::String variableName)
 	std::string name = variableName.get_cstring();
 	for (int colNr = 0; colNr < datasetStatic.columnCount; colNr++)
 	{
-		RJASP_Column& column = datasetStatic.columns[colNr];
+		SyntaxBridgeColumn& column = datasetStatic.columns[colNr];
 		if (name == column.name)
 		{
 			for (int rowNr = 0; rowNr < datasetStatic.rowCount; rowNr++)

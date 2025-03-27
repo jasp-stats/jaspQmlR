@@ -1,14 +1,12 @@
-Package: jaspQmlR
+Package: jaspSyntax
 Type: Package
-Title: Running QML in R
+Title: Makes JASP analyses available in R
 Version: 1.0
 Date: 2020-12-01
 Author: JASP Team
 Website: jasp-stats.org
 Maintainer: JASP Team <info@jasp-stats.org>
-Description: Start a QML Engine to allow R to load a QML component
+Description: Set up the right options for the analysis by loading its QML Form, and set up the R environment so that it can run the analysis as if it was run by JASP
 License: GPL (>= 2)
 Imports: Rcpp (>= 1.0.5)
 LinkingTo: Rcpp
-Suggests: 
-	testthat

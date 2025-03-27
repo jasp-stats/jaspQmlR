@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2013-2018 University of Amsterdam
+// Copyright (C) 2013-2025 University of Amsterdam
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as
@@ -19,18 +19,17 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "DataFrameImporter.h"
-#include "rjasp_interface.h"
+#include "dataframeimporter.h"
+#include "syntaxbridge_interface.h"
 
-static bool									gl_param_dbInMemory				= true;
-static bool									gl_param_orderLabelsByValue		= true;
-static int									gl_param_threshold				= 10;
-
+static bool		gl_param_dbInMemory				= true;
+static bool		gl_param_orderLabelsByValue		= true;
+static int		gl_param_threshold				= 10;
 
 // [[Rcpp::export]]
-void clearUp()
+void cleanUp()
 {
-	RJASP_Clearup();
+	syntaxBridgeCleanup();
 }
 
 // [[Rcpp::export]]
@@ -60,9 +59,9 @@ bool setParameter(String name, SEXP value)
 // [[Rcpp::export]]
 void loadDataSet(Rcpp::List data)
 {
-	const RJASP_DataSet& dataset = DataFrameImporter::loadDataFrame(data);
+	const SyntaxBridgeDataSet& dataset = DataFrameImporter::loadDataFrame(data);
 
-	RJASP_LoadDataSet(&dataset, gl_param_dbInMemory, gl_param_threshold, gl_param_orderLabelsByValue);
+	syntaxBridgeLoadDataSet(&dataset, gl_param_dbInMemory, gl_param_threshold, gl_param_orderLabelsByValue);
 }
 
 
@@ -76,7 +75,7 @@ String loadQmlAndParseOptions(String moduleName, String analysisName, String qml
 				moduleNameStr	= moduleName.get_cstring();
 
 
-	return RJASP_loadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
+	return syntaxBridgeLoadQmlAndParseOptions(moduleNameStr.c_str(), analysisNameStr.c_str(), qmlFileStr.c_str(), optionsStr.c_str(), versionStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]
@@ -85,7 +84,7 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 
 	std::string modulePathStr = modulePath.get_cstring();
 
-	return RJASP_generateModuleWrappers(modulePathStr.c_str(), preloadData);
+	return syntaxBridgeGenerateModuleWrappers(modulePathStr.c_str(), preloadData);
 }
 
 
@@ -93,10 +92,10 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData)
 {
 	std::string qmlFileNameStr	= qmlFileName.get_cstring(),
-				modulePathStr		= modulePath.get_cstring(),
+				modulePathStr	= modulePath.get_cstring(),
 				analysisNameStr	= analysisName.get_cstring();
 
-	return RJASP_generateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), preloadData);
+	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]

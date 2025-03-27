@@ -20,8 +20,7 @@
 #define DATAFRAMEIMPORTER_H
 
 #include <Rcpp.h>
-#include "rjasp_interface.h"
-
+#include "syntaxbridge_interface.h"
 
 
 
@@ -29,12 +28,12 @@ class DataFrameImporter
 {
 
 public:
-	static const RJASP_DataSet& loadDataFrame(Rcpp::List dataframe);
+	static const SyntaxBridgeDataSet& loadDataFrame(Rcpp::List dataframe);
 	static Rcpp::List getVariableNames();
 	static Rcpp::List getVariableValues(Rcpp::String variableName);
 
 private:
-	static RJASP_DataSet datasetStatic;
+	static SyntaxBridgeDataSet datasetStatic;
 	static void freeDataSet();
 
 	template<int RTYPE>

@@ -10,18 +10,18 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// clearUp
-void clearUp();
-RcppExport SEXP _jaspQmlR_clearUp() {
+// cleanUp
+void cleanUp();
+RcppExport SEXP _jaspSyntax_cleanUp() {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
-    clearUp();
+    cleanUp();
     return R_NilValue;
 END_RCPP
 }
 // setParameter
 bool setParameter(String name, SEXP value);
-RcppExport SEXP _jaspQmlR_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
+RcppExport SEXP _jaspSyntax_setParameter(SEXP nameSEXP, SEXP valueSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -33,7 +33,7 @@ END_RCPP
 }
 // loadDataSet
 void loadDataSet(Rcpp::List data);
-RcppExport SEXP _jaspQmlR_loadDataSet(SEXP dataSEXP) {
+RcppExport SEXP _jaspSyntax_loadDataSet(SEXP dataSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
@@ -43,7 +43,7 @@ END_RCPP
 }
 // loadQmlAndParseOptions
 String loadQmlAndParseOptions(String moduleName, String analysisName, String qmlFile, String options, String version, bool preloadData);
-RcppExport SEXP _jaspQmlR_loadQmlAndParseOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
+RcppExport SEXP _jaspSyntax_loadQmlAndParseOptions(SEXP moduleNameSEXP, SEXP analysisNameSEXP, SEXP qmlFileSEXP, SEXP optionsSEXP, SEXP versionSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -59,7 +59,7 @@ END_RCPP
 }
 // generateModuleWrappers
 String generateModuleWrappers(String modulePath, bool preloadData);
-RcppExport SEXP _jaspQmlR_generateModuleWrappers(SEXP modulePathSEXP, SEXP preloadDataSEXP) {
+RcppExport SEXP _jaspSyntax_generateModuleWrappers(SEXP modulePathSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -71,7 +71,7 @@ END_RCPP
 }
 // generateAnalysisWrapper
 String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData);
-RcppExport SEXP _jaspQmlR_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP, SEXP preloadDataSEXP) {
+RcppExport SEXP _jaspSyntax_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -85,7 +85,7 @@ END_RCPP
 }
 // getVariableNames
 Rcpp::List getVariableNames();
-RcppExport SEXP _jaspQmlR_getVariableNames() {
+RcppExport SEXP _jaspSyntax_getVariableNames() {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -95,7 +95,7 @@ END_RCPP
 }
 // getVariableValues
 Rcpp::List getVariableValues(String variableName);
-RcppExport SEXP _jaspQmlR_getVariableValues(SEXP variableNameSEXP) {
+RcppExport SEXP _jaspSyntax_getVariableValues(SEXP variableNameSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -106,18 +106,18 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_jaspQmlR_clearUp", (DL_FUNC) &_jaspQmlR_clearUp, 0},
-    {"_jaspQmlR_setParameter", (DL_FUNC) &_jaspQmlR_setParameter, 2},
-    {"_jaspQmlR_loadDataSet", (DL_FUNC) &_jaspQmlR_loadDataSet, 1},
-    {"_jaspQmlR_loadQmlAndParseOptions", (DL_FUNC) &_jaspQmlR_loadQmlAndParseOptions, 6},
-    {"_jaspQmlR_generateModuleWrappers", (DL_FUNC) &_jaspQmlR_generateModuleWrappers, 2},
-    {"_jaspQmlR_generateAnalysisWrapper", (DL_FUNC) &_jaspQmlR_generateAnalysisWrapper, 4},
-    {"_jaspQmlR_getVariableNames", (DL_FUNC) &_jaspQmlR_getVariableNames, 0},
-    {"_jaspQmlR_getVariableValues", (DL_FUNC) &_jaspQmlR_getVariableValues, 1},
+    {"_jaspSyntax_cleanUp", (DL_FUNC) &_jaspSyntax_cleanUp, 0},
+    {"_jaspSyntax_setParameter", (DL_FUNC) &_jaspSyntax_setParameter, 2},
+    {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
+    {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
+    {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 2},
+    {"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 4},
+    {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
+    {"_jaspSyntax_getVariableValues", (DL_FUNC) &_jaspSyntax_getVariableValues, 1},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_jaspQmlR(DllInfo *dll) {
+RcppExport void R_init_jaspSyntax(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }
