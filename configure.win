@@ -1,0 +1,35 @@
+# To manually specify a location for JASP_BUILD or JASP_BUILD_DIR do
+#
+# options(configure.vars = c(jaspSyntax = "JASP_BUILD='<path>'"))
+# install.packages("jaspSyntax", ...)
+
+if [ "${R_HOME}" ]; then
+        echo "Found R_HOME: ${R_HOME}"
+else
+        echo "No R_HOME found"
+fi
+
+if [[ ! "${JASP_BUILD_DIR}" ]]; then
+	JASP_BUILD_DIR=C:/JASP/source/build-jasp-desktop-bruno-Desktop_Qt_6_8_2_MSVC2022_64bit-Debug
+fi
+echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
+
+if [[ ! "${JASP_SOURCE_DIR}" ]]; then
+	JASP_SOURCE_DIR=C:/JASP/source/jasp-desktop-bruno
+fi
+echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
+
+
+SRC_SOURCES="$(cd src/ && ls *.cpp | tr '\n' ' ')"
+
+PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/bin/x64/R.dll"
+
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DUNICODE\ -DWIN32\ -DWIN32_LEAN_AND_MEAN\ -DWIN64\ -D_ENABLE_EXTENDED_ALIGNED_STORAGE
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
+
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/SyntaxInterface.dll
+
+
+sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
+
+exit 0
