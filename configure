@@ -3,22 +3,6 @@
 # options(configure.vars = c(jaspSyntax = "QT_DIR='<path>'"))
 # install.packages("jaspSyntax", ...)
 
-if test -f "/etc/redhat-release" && ! grep -Fq Fedora "/etc/redhat-release"; then
-	echo "on RHEL"
-fi
-
-if test -f "/etc/os-release" && grep -Fq Ubuntu "/etc/os-release"; then
-	echo "on Ubuntu"
-fi
-
-if [ "$UNAME" = "Darwin" ]; then
-	echo "on macOS"
-fi
-
-if [ "$UNAME" = "SunOS" ]; then
-	echo "on SunOS"
-fi
-
 if [ "${R_HOME}" ]; then
 	echo "Found R_HOME: ${R_HOME}"
 else
@@ -26,10 +10,10 @@ else
 fi
 
 if [ "${QT_DIR}" ]; then
-        echo "Found QT_DIR: ${QT_DIR}"
+	echo "Found QT_DIR: ${QT_DIR}"
 else
-		QT_DIR=~/Qt/6.8.2/macos
-        echo "Use default QT_DIR: ${QT_DIR}"
+	QT_DIR=~/Qt/6.8.2/macos
+	echo "Use default QT_DIR: ${QT_DIR}"
 fi
 
 if [[ ! "${JASP_BUILD_DIR}" ]]; then
@@ -40,40 +24,36 @@ echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 if [[ ! "${JASP_SOURCE_DIR}" ]]; then
 	JASP_SOURCE_DIR=~/JASP/source/jasp-desktop2
 fi
-echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"
+echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"	
 
-
-DOWNLOAD_SUCCESS=1
-
-if [[ ! "${JASPCOMMONLIB_SOURCE_DIR}" ]]; then
-	JASPCOMMONLIB_SOURCE_DIR="${JASP_SOURCE_DIR}"/Common
+if [[ ! "${JASP_DEBUG}" ]]; then
+	JASP_DEBUG=true
 fi
-echo "JASPCOMMONLIB_SOURCE_DIR: ${JASPCOMMONLIB_SOURCE_DIR}"
+echo "JASP_DEBUG: ${JASP_DEBUG}"
+
+if [ "${JASP_DEBUG}" = true ]; then
+	COMPILE_OPTIONS=-g\ -O0
+else
+	COMPILE_OPTIONS=-O2
+fi
+
+if [[ ! "${OS_ARCH}" ]]; then
+	OS_ARCH=$(uname -m)
+fi
+echo "OS_ARCH: ${OS_ARCH}"
+
+PKG_CXXFLAGS=${COMPILE_OPTIONS}\ -arch\ "${OS_ARCH}"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -mmacosx-version-min=12.5\ -std=gnu++17\ -MD\ -MT
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DQT_DIR="${QT_DIR}"
+PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
 
 
-SRC_SOURCES="$(cd src/ && ls *.cpp | tr '\n' ' ')"
-
-PKG_LIBS=-g\ -arch\ arm64
+PKG_LIBS=${COMPILE_OPTIONS}\ -arch\ "${OS_ARCH}"
 PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
 PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
 PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
 PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/lib/libR.dylib"
 PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl"
-
-PKG_CXXFLAGS=-DQT_DIR="${QT_DIR}"\ -DQT_STATICPLUGIN
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -DQT_DEBUG_PLUGINS\ -DQT_CORE_LIB\ -DQT_GUI_LIB\ -DQT_NETWORK_LIB\ -DQT_OPENGL_LIB\ -DQT_QMLINTEGRATION_LIB\ -DQT_QMLMODELS_LIB\ -DQT_QML_LIB\ -DQT_QUICK_LIB
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
-
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${R_HOME}/library/RInside/include"
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/Common
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/CommonData
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/Common/jaspColumnEncoder
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/controls
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/rsyntax
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/ALTNavigation
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/QMLComponents/utilities
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/R-Interface
 
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComponentsplugin.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
@@ -85,22 +65,10 @@ PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/SyntaxInterface/libSyntaxInterface.a
 PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
 PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtWidgets.framework/Versions/A/QtWidgets
 
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtCore.framework/Headers
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -iframework\ ${QT_DIR}/lib
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/mkspecs/macx-clang
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQml.framework/Headers
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/include/QtQmlIntegration
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQuick.framework/Headers
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtQuickControls2.framework/Headers
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtWidgets.framework/Headers
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -isystem\ ${QT_DIR}/lib/QtGui.framework/Headers
+#This settings are used by cmake when linking JASP, but this does not seem to be needed.
+#PKG_LIBS=${PKG_LIBS}\ -Xlinker\ -framework\ -Xlinker\ AGL\ -framework\ AppKit\ -framework\ ImageIO\ -framework\ Metal
 
-PKG_LIBS=${PKG_LIBS}\ -framework\ IOKit\ -framework\ DiskArbitration\ -Xlinker\ -framework\ -Xlinker\ OpenGL
-PKG_LIBS=${PKG_LIBS}\ -Xlinker\ -framework\ -Xlinker\ AGL\ -framework\ AppKit\ -framework\ ImageIO\ -framework\ Metal
-
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -g\ -arch\ arm64
-PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -mmacosx-version-min=12.5\ -std=gnu++17\ -MD\ -MT
+SRC_SOURCES="$(cd src/ && ls *.cpp | tr '\n' ' ')"
 
 
 sed -e "s|@cppflags@|${PKG_CXXFLAGS}|" -e "s|@libflags@|${PKG_LIBS}|" src/Makevars.in > src/Makevars
