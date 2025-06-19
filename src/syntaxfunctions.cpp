@@ -89,13 +89,14 @@ String generateModuleWrappers(String modulePath, bool preloadData)
 
 
 // [[Rcpp::export]]
-String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData)
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, String title, bool preloadData)
 {
 	std::string qmlFileNameStr	= qmlFileName.get_cstring(),
 				modulePathStr	= modulePath.get_cstring(),
-				analysisNameStr	= analysisName.get_cstring();
+				analysisNameStr	= analysisName.get_cstring(),
+				titleStr		= title.get_cstring();
 
-	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), preloadData);
+	return syntaxBridgeGenerateAnalysisWrapper(modulePathStr.c_str(), qmlFileNameStr.c_str(), analysisNameStr.c_str(), titleStr.c_str(), preloadData);
 }
 
 // [[Rcpp::export]]

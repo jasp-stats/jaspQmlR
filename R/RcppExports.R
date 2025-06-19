@@ -21,8 +21,8 @@ generateModuleWrappers <- function(modulePath, preloadData) {
     .Call(`_jaspSyntax_generateModuleWrappers`, modulePath, preloadData)
 }
 
-generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName, preloadData) {
-    .Call(`_jaspSyntax_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName, preloadData)
+generateAnalysisWrapper <- function(modulePath, qmlFileName, analysisName, title, preloadData) {
+    .Call(`_jaspSyntax_generateAnalysisWrapper`, modulePath, qmlFileName, analysisName, title, preloadData)
 }
 
 getVariableNames <- function() {

@@ -70,16 +70,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // generateAnalysisWrapper
-String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, bool preloadData);
-RcppExport SEXP _jaspSyntax_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP, SEXP preloadDataSEXP) {
+String generateAnalysisWrapper(String modulePath, String qmlFileName, String analysisName, String title, bool preloadData);
+RcppExport SEXP _jaspSyntax_generateAnalysisWrapper(SEXP modulePathSEXP, SEXP qmlFileNameSEXP, SEXP analysisNameSEXP, SEXP titleSEXP, SEXP preloadDataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< String >::type modulePath(modulePathSEXP);
     Rcpp::traits::input_parameter< String >::type qmlFileName(qmlFileNameSEXP);
     Rcpp::traits::input_parameter< String >::type analysisName(analysisNameSEXP);
+    Rcpp::traits::input_parameter< String >::type title(titleSEXP);
     Rcpp::traits::input_parameter< bool >::type preloadData(preloadDataSEXP);
-    rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName, preloadData));
+    rcpp_result_gen = Rcpp::wrap(generateAnalysisWrapper(modulePath, qmlFileName, analysisName, title, preloadData));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -111,7 +112,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_jaspSyntax_loadDataSet", (DL_FUNC) &_jaspSyntax_loadDataSet, 1},
     {"_jaspSyntax_loadQmlAndParseOptions", (DL_FUNC) &_jaspSyntax_loadQmlAndParseOptions, 6},
     {"_jaspSyntax_generateModuleWrappers", (DL_FUNC) &_jaspSyntax_generateModuleWrappers, 2},
-    {"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 4},
+    {"_jaspSyntax_generateAnalysisWrapper", (DL_FUNC) &_jaspSyntax_generateAnalysisWrapper, 5},
     {"_jaspSyntax_getVariableNames", (DL_FUNC) &_jaspSyntax_getVariableNames, 0},
     {"_jaspSyntax_getVariableValues", (DL_FUNC) &_jaspSyntax_getVariableValues, 1},
     {NULL, NULL, 0}

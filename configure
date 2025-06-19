@@ -12,17 +12,17 @@ fi
 if [ "${QT_DIR}" ]; then
 	echo "Found QT_DIR: ${QT_DIR}"
 else
-	QT_DIR=~/Qt/6.8.2/macos
+	QT_DIR=~/Qt/6.8.3/macos
 	echo "Use default QT_DIR: ${QT_DIR}"
 fi
 
 if [[ ! "${JASP_BUILD_DIR}" ]]; then
-	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop2-Qt_6_8_2_for_macOS-Debug
+	JASP_BUILD_DIR=~/JASP/source/build-jasp-desktop-Qt_6_8_3_for_macOS-Debug
 fi
 echo "JASP_BUILD_DIR: ${JASP_BUILD_DIR}"
 
 if [[ ! "${JASP_SOURCE_DIR}" ]]; then
-	JASP_SOURCE_DIR=~/JASP/source/jasp-desktop2
+	JASP_SOURCE_DIR=~/JASP/source/jasp-desktop
 fi
 echo "JASP_SOURCE_DIR: ${JASP_SOURCE_DIR}"	
 
@@ -51,7 +51,6 @@ PKG_CXXFLAGS=${PKG_CXXFLAGS}\ -I"${JASP_SOURCE_DIR}"/SyntaxInterface
 PKG_LIBS=${COMPILE_OPTIONS}\ -arch\ "${OS_ARCH}"
 PKG_LIBS=${PKG_LIBS}\ -mmacosx-version-min=12.5\ -Wl,-search_paths_first\ -Wl,-headerpad_max_install_names
 PKG_LIBS=${PKG_LIBS}\ -F${QT_DIR}/lib
-PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/library/RInside/lib/libRInside.a"
 PKG_LIBS=${PKG_LIBS}\ "${R_HOME}/lib/libR.dylib"
 PKG_LIBS=${PKG_LIBS}\ "-Wl,-rpath,${QT_DIR}/lib -Wl"
 
@@ -59,7 +58,7 @@ PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/JASP/Controls/libQMLComp
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/QMLComponents/libQMLComponents.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/Common/libCommon.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/CommonData/libCommonData.a
-PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-Interface.a
+PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/R-Interface/libR-InterfaceNoRInside.a
 PKG_LIBS=${PKG_LIBS}\ "${JASP_BUILD_DIR}"/SyntaxInterface/libSyntaxInterface.a
 
 PKG_LIBS=${PKG_LIBS}\ ${QT_DIR}/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2
